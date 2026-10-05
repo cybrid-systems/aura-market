@@ -25,5 +25,10 @@ exec "${DOCKER[@]}" run --rm -i --entrypoint /usr/local/bin/gosu \
   -e AURA_PIPELINE_STRICT=0 \
   -e AURA_SANDBOX=off \
   -e AURA_BIN=/workspace/aura-grok/build/aura \
+  -e "MARKET_HORIZON=${MARKET_HORIZON:-}" \
+  -e "MARKET_BURN_ROUNDS=${MARKET_BURN_ROUNDS:-}" \
+  -e "MARKET_ROUND_DIR=${MARKET_ROUND_DIR:-}" \
+  -e "MARKET_PROPOSE_FILE=${MARKET_PROPOSE_FILE:-}" \
+  -e "MARKET_PROPOSE=${MARKET_PROPOSE:-}" \
   "${IMG}" \
   dev /usr/bin/stdbuf -oL -eL /workspace/aura-grok/build/aura "$SRC" "$@"
