@@ -44,7 +44,7 @@
                   (loop (+ i 1)))))
           (let ((bad (mk:apply-body!
                       "(lambda () (begin (set! *tick* 9) (list 3 5 0)))"
-                      "bad"))
+                      "bad")))
             (if (not (tag? bad "gate"))
                 (begin
                   (display "GATE_FAIL")
