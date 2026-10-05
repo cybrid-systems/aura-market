@@ -1,6 +1,7 @@
 ;; Fixture propose. No HTTP. Gate, heal, DROP, KEEP.
 ;; Ticks stay 48 so the scores match the M0 tape law.
 (load "/workspace/aura-market/soft/market/book.aura")
+(load "/workspace/aura-market/soft/market/book_m12.aura")
 (load "/workspace/aura-market/soft/market/rules.aura")
 (load "/workspace/aura-market/soft/market/propose.aura")
 
