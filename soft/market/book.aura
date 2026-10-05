@@ -1,0 +1,219 @@
+;; aura-market M0 — one Soft FlatAST order book, seeded taker flow.
+;; No C viewport. Prices, sizes, cash, inventory are integers.
+;; Division truncates toward zero.
+;;
+;; An order is (side px qty mid). side 0 = bid (buy), 1 = ask (sell).
+;; The gate checks every MM order before it may rest in the book.
+;; A rejected order never rests. Its reason is logged as REJECT.
+
+(define *ticks* 48)
+(define *seed* 20261005)
+(define *fair0* 100)
+(define *inv-limit* 10)
+
+;; Main-world book state (FlatAST workspace data). Only the stamp writes it.
+(define *book* (list))
+(define *fair* 0)
+(define *inv* 0)
+(define *cash* 0)
+(define *fills* 0)
+(define *rejects* 0)
+(define *pnl* 0)
+(define *penalty* 0)
+(define *tick* 0)
+(define *slot-tag* "none")
+
+(define (mk:dialect)
+  "live-orderbook-market-m0")
+
+(define (mk:nstr n)
+  (if (< n 0)
+      (string-append "-" (number->string (- 0 n)))
+      (number->string n)))
+
+(define (mk:qdiv n d)
+  (if (< n 0)
+      (- 0 (quotient (- 0 n) d))
+      (quotient n d)))
+
+(define (mk:abs n) (if (< n 0) (- 0 n) n))
+(define (mk:min a b) (if (< a b) a b))
+
+(define (mk:seed-step seed)
+  (modulo (+ (* seed 75) 74) 65537))
+
+;; Taker flow from one rng word.
+;; side 0 = taker buys (lifts asks), 1 = taker sells (hits bids).
+(define (mk:t-side r) (modulo r 2))
+(define (mk:t-qty r) (+ 1 (modulo (quotient r 2) 4)))
+(define (mk:t-aggr r) (modulo (quotient r 8) 4))
+(define (mk:t-drift r) (- (modulo (quotient r 32) 3) 1))
+
+(define (mk:order side px qty mid) (list side px qty mid))
+(define (mk:o-side o) (car o))
+(define (mk:o-px o) (car (cdr o)))
+(define (mk:o-qty o) (car (cdr (cdr o))))
+(define (mk:o-mid o) (car (cdr (cdr (cdr o)))))
+
+;; Soft gate. Returns "ok" or a reason string.
+;; other is the same MM's opposite quote this tick (or #f).
+(define (mk:gate o other inv)
+  (cond
+    ((< (mk:o-qty o) 0) "negative-qty")
+    ((= (mk:o-qty o) 0) "zero-qty")
+    ((<= (mk:o-px o) 0) "non-positive-px")
+    ((and other
+          (= (mk:o-side o) 0)
+          (> (mk:o-qty other) 0)
+          (>= (mk:o-px o) (mk:o-px other)))
+     "crossed-self-trade")
+    ((and (= (mk:o-side o) 0)
+          (> (+ inv (mk:o-qty o)) *inv-limit*))
+     "over-inventory-limit")
+    ((and (= (mk:o-side o) 1)
+          (< (- inv (mk:o-qty o)) (- 0 *inv-limit*)))
+     "over-inventory-limit")
+    (#t "ok")))
+
+(define (mk:reject! tick o reason tag)
+  (display "REJECT mid=")
+  (display (number->string (mk:o-mid o)))
+  (display " reason=")
+  (display reason)
+  (display " tick=")
+  (display (number->string tick))
+  (display " side=")
+  (display (if (= (mk:o-side o) 0) "bid" "ask"))
+  (display " px=")
+  (display (mk:nstr (mk:o-px o)))
+  (display " qty=")
+  (display (mk:nstr (mk:o-qty o)))
+  (display " slot=")
+  (display tag)
+  (newline)
+  0)
+
+(define (mk:tape! tick fair inv cash book tag)
+  (display "TAPE tick=")
+  (display (number->string tick))
+  (display " fair=")
+  (display (number->string fair))
+  (display " inv=")
+  (display (mk:nstr inv))
+  (display " cash=")
+  (display (mk:nstr cash))
+  (display " book=")
+  (display (number->string (length book)))
+  (display " slot=")
+  (display tag)
+  (newline)
+  0)
+
+;; Best resting order on one side of a book (single MM: at most one each).
+(define (mk:side-of book side)
+  (cond
+    ((null? book) #f)
+    ((= (mk:o-side (car book)) side) (car book))
+    (#t (mk:side-of (cdr book) side))))
+
+;; Pure play of one strategy against the seeded taker flow.
+;; qf is (lambda (fair inv) (list bid-px bid-qty ask-px ask-qty)).
+;; print=1 prints REJECT (host audit pass). print=2 prints TAPE (stamp replay).
+;; Returns (score pnl penalty inv cash fair fills rejects book).
+(define (mk:sim qf mid tag print)
+  (let loop ((i 0)
+             (r (mk:seed-step *seed*))
+             (fair *fair0*)
+             (inv 0)
+             (cash 0)
+             (invsum 0)
+             (fills 0)
+             (rejects 0)
+             (book (list)))
+    (if (>= i *ticks*)
+        (let* ((pnl (+ cash (* inv fair)))
+               (pen (+ (quotient invsum 4) (* 2 (mk:abs inv)))))
+          (list (- pnl pen) pnl pen inv cash fair fills rejects book))
+        (let* ((fair1 (+ fair (mk:t-drift r)))
+               (q (qf fair1 inv))
+               (bid (mk:order 0 (car q) (car (cdr q)) mid))
+               (ask (mk:order 1 (car (cdr (cdr q))) (car (cdr (cdr (cdr q)))) mid))
+               (gb (mk:gate bid ask inv))
+               (ga (mk:gate ask bid inv))
+               (nrej (+ (if (string=? gb "ok") 0 1)
+                        (if (string=? ga "ok") 0 1))))
+          ;; Audit prints the first few rejections in full; the total is
+          ;; returned and printed as REJECTS by the caller.
+          (if (and (= print 1) (< rejects 3))
+              (begin
+                (if (not (string=? gb "ok")) (mk:reject! (+ i 1) bid gb tag))
+                (if (not (string=? ga "ok")) (mk:reject! (+ i 1) ask ga tag))))
+          (let* ((bk (append (if (string=? gb "ok") (list bid) (list))
+                             (if (string=? ga "ok") (list ask) (list))))
+                 (side (mk:t-side r))
+                 (tq (mk:t-qty r))
+                 (aggr (mk:t-aggr r))
+                 (hit (if (= side 0) (mk:side-of bk 1) (mk:side-of bk 0)))
+                 (crosses (and hit
+                               (if (= side 0)
+                                   (<= (mk:o-px hit) (+ fair1 aggr))
+                                   (>= (mk:o-px hit) (- fair1 aggr)))))
+                 (f (if crosses (mk:min tq (mk:o-qty hit)) 0))
+                 (px (if crosses (mk:o-px hit) 0))
+                 (inv1 (if (= side 0) (- inv f) (+ inv f)))
+                 (cash1 (if (= side 0) (+ cash (* f px)) (- cash (* f px))))
+                 (rest (if (and crosses (> (- (mk:o-qty hit) f) 0))
+                           (if (= side 0)
+                               (append (if (mk:side-of bk 0) (list (mk:side-of bk 0)) (list))
+                                       (list (mk:order 1 px (- (mk:o-qty hit) f) mid)))
+                               (append (list (mk:order 0 px (- (mk:o-qty hit) f) mid))
+                                       (if (mk:side-of bk 1) (list (mk:side-of bk 1)) (list))))
+                           (if crosses
+                               (if (= side 0)
+                                   (if (mk:side-of bk 0) (list (mk:side-of bk 0)) (list))
+                                   (if (mk:side-of bk 1) (list (mk:side-of bk 1)) (list)))
+                               bk))))
+            (if (and (= print 2) (= (modulo (+ i 1) 12) 0))
+                (mk:tape! (+ i 1) fair1 inv1 cash1 rest tag))
+            (loop (+ i 1)
+                  (mk:seed-step r)
+                  fair1
+                  inv1
+                  cash1
+                  (+ invsum (mk:abs inv1))
+                  (+ fills (if crosses 1 0))
+                  (+ rejects nrej)
+                  rest))))))
+
+(define (mk:r-score s) (car s))
+(define (mk:r-pnl s) (car (cdr s)))
+(define (mk:r-pen s) (car (cdr (cdr s))))
+(define (mk:r-inv s) (car (cdr (cdr (cdr s)))))
+(define (mk:r-cash s) (car (cdr (cdr (cdr (cdr s))))))
+(define (mk:r-fair s) (car (cdr (cdr (cdr (cdr (cdr s)))))))
+(define (mk:r-fills s) (car (cdr (cdr (cdr (cdr (cdr (cdr s))))))))
+(define (mk:r-rejects s) (car (cdr (cdr (cdr (cdr (cdr (cdr (cdr s)))))))))
+(define (mk:r-book s) (car (cdr (cdr (cdr (cdr (cdr (cdr (cdr (cdr s))))))))))
+
+;; Score only. No set! of world slots, so a fiber race cannot clobber main.
+(define (mk:score qf mid)
+  (mk:r-score (mk:sim qf mid "race" 0)))
+
+;; Host audit pass: prints REJECT lines, writes nothing.
+(define (mk:audit-run qf mid tag)
+  (mk:sim qf mid tag 1))
+
+;; Replay the winner and write the main book.
+(define (mk:stamp! qf mid tag)
+  (let ((s (mk:sim qf mid tag 2)))
+    (set! *slot-tag* tag)
+    (set! *book* (mk:r-book s))
+    (set! *fair* (mk:r-fair s))
+    (set! *inv* (mk:r-inv s))
+    (set! *cash* (mk:r-cash s))
+    (set! *fills* (mk:r-fills s))
+    (set! *rejects* (mk:r-rejects s))
+    (set! *pnl* (mk:r-pnl s))
+    (set! *penalty* (mk:r-pen s))
+    (set! *tick* *ticks*)
+    (mk:r-score s)))

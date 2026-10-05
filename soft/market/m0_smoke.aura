@@ -1,0 +1,116 @@
+;; Dual market-maker race. Prints RACE/REJECT/WORLD/KEEP/DROP and MARKET_M0_OK.
+;; fiber_live is accepted only when joins equal spawns and backend > 0.
+(load "/workspace/aura-market/soft/market/book.aura")
+(load "/workspace/aura-market/soft/market/rules.aura")
+
+(define *fail* 0)
+
+(define (expect tag got want)
+  (display tag)
+  (display "=")
+  (display (mk:nstr got))
+  (if (= got want)
+      (display " OK")
+      (begin
+        (display " WANT=")
+        (display (mk:nstr want))
+        (set! *fail* (+ *fail* 1))))
+  (newline)
+  got)
+
+(define (expect-str tag got want)
+  (display tag)
+  (display "=")
+  (display got)
+  (if (string=? got want)
+      (display " OK")
+      (begin
+        (display " WANT=")
+        (display want)
+        (set! *fail* (+ *fail* 1))))
+  (newline)
+  got)
+
+(display "DIALECT=")
+(display (mk:dialect))
+(newline)
+
+(expect "TICKS" *ticks* 48)
+(expect "SEED" *seed* 20261005)
+(expect "RNG" (mk:seed-step *seed*) 34567)
+
+;; Gate self-check on hand-built orders (not strategy output).
+(expect-str "GATE_NEG" (mk:gate (mk:order 0 99 -1 9) #f 0) "negative-qty")
+(expect-str "GATE_CROSS" (mk:gate (mk:order 0 101 2 9) (mk:order 1 100 2 9) 0) "crossed-self-trade")
+(expect-str "GATE_INV" (mk:gate (mk:order 0 99 5 9) #f 8) "over-inventory-limit")
+(expect-str "GATE_OK" (mk:gate (mk:order 1 101 2 9) (mk:order 0 99 2 9) 0) "ok")
+
+(mk:race!)
+(mk:audit!)
+
+;; Pinned evidence for seed 20261005, 48 ticks.
+(expect "SCORE_TIGHT" *score-tight* -5)
+(expect "SCORE_WIDE" *score-wide* 18)
+(expect "REJ_TIGHT" *rej-tight* 30)
+(expect "REJ_WIDE" *rej-wide* 14)
+(expect "KEEP_MID" *keep-mid* 2)
+(expect "DROP_MID" *drop-mid* 1)
+(expect "MAIN_MID" *main-mid* 2)
+(expect "MAIN_SCORE" *main-score* 18)
+(expect "PNL" *pnl* 89)
+(expect "PENALTY" *penalty* 71)
+(expect "INV" *inv* 8)
+(expect "CASH" *cash* -679)
+(expect "FAIR" *fair* 96)
+(expect "FILLS" *fills* 10)
+(expect "REJECTS" *rejects* 14)
+(expect "BOOK" (length *book*) 1)
+(expect "TICK" *tick* 48)
+(expect-str "SLOT" *slot-tag* "mm-wide")
+(expect-str "KEEP_REASON" *keep-reason* "higher-score-stamp")
+(expect-str "DROP_REASON" *drop-reason* "lower-score-rollback")
+
+(if (string=? *world-line* "fiber_live")
+    (if (not (and (> *race-backend* 0)
+                  (> *race-spawned* 0)
+                  (= *race-joined* *race-spawned*)))
+        (begin
+          (display "WORLD_FAIL")
+          (newline)
+          (set! *fail* (+ *fail* 1))))
+    (if (not (string=? *world-line* "host-sequential"))
+        (begin
+          (display "WORLD_FAIL")
+          (newline)
+          (set! *fail* (+ *fail* 1)))))
+
+(if (not (> (+ *rej-tight* *rej-wide*) 0))
+    (begin
+      (display "REJECT_FAIL")
+      (newline)
+      (set! *fail* (+ *fail* 1))))
+
+(if (not (and (not (= *keep-mid* *drop-mid*))
+              (= *main-mid* *keep-mid*)
+              (= *main-score* (if (= *keep-mid* 1) *score-tight* *score-wide*))
+              (> *main-score* (if (= *keep-mid* 1) *score-wide* *score-tight*))))
+    (begin
+      (display "KEEP_FAIL")
+      (newline)
+      (set! *fail* (+ *fail* 1))))
+
+;; Main book must hold only the kept strategy's resting orders.
+(if (not (and (> (length *book*) 0)
+              (= (mk:o-mid (car *book*)) *keep-mid*)))
+    (begin
+      (display "STAMP_FAIL")
+      (newline)
+      (set! *fail* (+ *fail* 1))))
+
+(if (= *fail* 0)
+    (begin
+      (display "MARKET_M0_OK")
+      (newline))
+    (begin
+      (display "MARKET_M0_FAIL")
+      (newline)))
