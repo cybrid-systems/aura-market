@@ -1,0 +1,46 @@
+;; Multi-round propose → gate → play. Ticks default to 24 (smaller than M0).
+;; Each round reads MARKET_ROUND_DIR/<n>.lambda. KEEP only on a strict improvement.
+(load "/workspace/aura-market/soft/market/book.aura")
+(load "/workspace/aura-market/soft/market/rules.aura")
+(load "/workspace/aura-market/soft/market/propose.aura")
+
+(define (mk:env-int name fallback)
+  (let ((raw (getenv name)))
+    (if (and (string? raw) (> (string-length raw) 0))
+        (let ((n (string->number raw)))
+          (if (number? n) n fallback))
+        fallback)))
+
+(define (mk:burn!)
+  (let ((dir (getenv "MARKET_ROUND_DIR"))
+        (rounds (mk:env-int "MARKET_BURN_ROUNDS" 3))
+        (hz (mk:env-int "MARKET_HORIZON" 24)))
+    (set! *ticks* hz)
+    (display "BURN rounds=")
+    (display (number->string rounds))
+    (display " ticks=")
+    (display (number->string hz))
+    (newline)
+    (if (not (and (string? dir) (> (string-length dir) 0)))
+        (display "MARKET_BURN_FAIL dir\n")
+        (let ((seeded (mk:strategy-seed!)))
+          (if (not (and (pair? seeded) (equal? (car seeded) #t)))
+              (display "MARKET_BURN_FAIL seed\n")
+              (begin
+                (let loop ((i 1))
+                  (if (> i rounds)
+                      0
+                      (begin
+                        (display "BURN_ROUND=")
+                        (display (number->string i))
+                        (newline)
+                        (mk:propose-file!
+                         (string-append dir "/" (number->string i) ".lambda"))
+                        (loop (+ i 1)))))
+                (mk:stamp-world!)
+                (display "MAIN score=")
+                (display (mk:nstr *main-score*))
+                (newline)
+                (display "MARKET_BURN_OK\n")))))))
+
+(mk:burn!)
