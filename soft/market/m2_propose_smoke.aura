@@ -1,1 +1,113 @@
-placeholder
+;; Fixture propose. No HTTP. Gate, heal, DROP, KEEP.
+;; Ticks stay 48 so the scores match the M0 tape law.
+(load "/workspace/aura-market/soft/market/book.aura")
+(load "/workspace/aura-market/soft/market/rules.aura")
+(load "/workspace/aura-market/soft/market/propose.aura")
+
+(define *fail* 0)
+
+(define (expect tag got want)
+  (display tag)
+  (display "=")
+  (display (mk:nstr got))
+  (if (= got want)
+      (display " OK")
+      (begin
+        (display " WANT=")
+        (display (mk:nstr want))
+        (set! *fail* (+ *fail* 1))))
+  (newline)
+  got)
+
+(define (tag? r want)
+  (and (pair? r) (pair? (cdr r)) (equal? (car (cdr r)) want)))
+
+(define (pack= p hs sz ib)
+  (and (mk:pack-ok? p)
+       (= (mk:pack-hs p) hs)
+       (= (mk:pack-sz p) sz)
+       (= (mk:pack-ib p) ib)))
+
+(define (main)
+  (let ((seeded (mk:strategy-seed!)))
+    (if (not (and (pair? seeded) (equal? (car seeded) #t)))
+        (display "MARKET_M2_PROPOSE_FAIL seed\n")
+        (begin
+          (let ((bad (mk:propose-file!
+                      "/workspace/aura-market/soft/market/fixtures/bad.lambda")))
+            (if (not (tag? bad "propose_reject"))
+                (begin
+                  (display "REJECT_FAIL")
+                  (newline)
+                  (set! *fail* (+ *fail* 1)))))
+          (if (not (pack= (mk:law) 3 5 0))
+              (begin
+                (display "SLOT_FAIL reject")
+                (newline)
+                (set! *fail* (+ *fail* 1))))
+          (let ((ugly (mk:propose-file!
+                       "/workspace/aura-market/soft/market/fixtures/ugly.lambda")))
+            (if (not (tag? ugly "propose_heal"))
+                (begin
+                  (display "HEAL_FAIL")
+                  (newline)
+                  (set! *fail* (+ *fail* 1)))))
+          (if (not (pack= (mk:law) 3 5 0))
+              (begin
+                (display "SLOT_FAIL heal")
+                (newline)
+                (set! *fail* (+ *fail* 1))))
+          (let ((worse (mk:propose-file!
+                        "/workspace/aura-market/soft/market/fixtures/worse.lambda")))
+            (if (not (tag? worse "propose_drop"))
+                (begin
+                  (display "DROP_FAIL")
+                  (newline)
+                  (set! *fail* (+ *fail* 1)))))
+          (expect "WORSE_BASE" *base-last* 18)
+          (expect "WORSE_TRIAL" *trial-last* -5)
+          (if (not (pack= (mk:law) 3 5 0))
+              (begin
+                (display "SLOT_FAIL drop")
+                (newline)
+                (set! *fail* (+ *fail* 1))))
+          (if (not (string=? *main-body* *wide-body*))
+              (begin
+                (display "MAIN_FAIL drop")
+                (newline)
+                (set! *fail* (+ *fail* 1))))
+          (let ((better (mk:propose-file!
+                         "/workspace/aura-market/soft/market/fixtures/better.lambda")))
+            (if (not (tag? better "propose_keep"))
+                (begin
+                  (display "KEEP_FAIL")
+                  (newline)
+                  (set! *fail* (+ *fail* 1)))))
+          (expect "BETTER_BASE" *base-last* 18)
+          (expect "BETTER_TRIAL" *trial-last* 36)
+          (expect "MAIN_SCORE" *main-score* 36)
+          (expect "LIVE_SCORE" (mk:live-score) 36)
+          (if (not (pack= (mk:law) 3 3 0))
+              (begin
+                (display "SLOT_FAIL keep")
+                (newline)
+                (set! *fail* (+ *fail* 1))))
+          (mk:stamp-world!)
+          (if (string=? *world-line* "fiber_live")
+              (if (not (and (> *race-backend* 0)
+                            (= *race-joined* *race-spawned*)
+                            (= *race-spawned* 4)))
+                  (begin
+                    (display "WORLD_FAIL")
+                    (newline)
+                    (set! *fail* (+ *fail* 1))))
+              (if (not (string=? *world-line* "host-sequential"))
+                  (begin
+                    (display "WORLD_FAIL")
+                    (newline)
+                    (set! *fail* (+ *fail* 1)))))
+          (if (= *fail* 0)
+              (display "MARKET_M2_PROPOSE_OK\n")
+              (display "MARKET_M2_PROPOSE_FAIL\n"))))))
+
+(main)
