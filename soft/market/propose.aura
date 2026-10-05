@@ -1,0 +1,74 @@
+;; Propose → gate → race vs current main → KEEP or DROP/heal.
+;; Host writes a (lambda () (list spread size bias)) file. Soft does not speak HTTP.
+;; mk:shadow is the current main pack. mk:law is the trial.
+;; KEEP only when the trial score is strictly greater. A tie DROPs.
+
+(load "/workspace/aura-market/soft/market/hot.aura")
+
+(define (mk:propose-score! clean)
+  (let ((pair (mk:race-thunks!
+               (lambda () (mk:score-pack (mk:shadow)))
+               (lambda () (mk:score-pack (mk:law))))))
+    (let ((base (car pair))
+          (trial (car (cdr pair))))
+      (set! *base-last* base)
+      (set! *trial-last* trial)
+      (display "RACE base=")
+      (display (mk:nstr base))
+      (display " trial=")
+      (display (mk:nstr trial))
+      (newline)
+      (if (> trial base)
+          (begin
+            (set! *main-body* clean)
+            (set! *main-score* trial)
+            (set! *main-name* "mk:law")
+            (set! *keep-reason* "higher-score-stamp")
+            (set! *propose-tag* "propose_keep")
+            (display "KEEP reason=higher-score-stamp")
+            (newline)
+            (display "PROPOSE tag=propose_keep")
+            (newline)
+            (mk:stamp-pack! (mk:law) "mk:law")
+            (list #t "propose_keep"))
+          (begin
+            (hot-strategy:heal!)
+            (set! *drop-reason* "lower-score-rollback")
+            (set! *propose-tag* "propose_drop")
+            (display "HEAL name=mk:law reason=score")
+            (newline)
+            (display "DROP reason=lower-score-rollback")
+            (newline)
+            (display "PROPOSE tag=propose_drop")
+            (newline)
+            (list #f "propose_drop"))))))
+
+(define (mk:propose-body! body)
+  (let ((clean (if (string? body) (string-trim body) "")))
+    (let ((r (mk:apply-body! clean "propose")))
+      (cond
+        ((and (pair? r) (pair? (cdr r)) (equal? (car (cdr r)) "swap"))
+         (mk:propose-score! clean))
+        ((and (pair? r) (pair? (cdr r)) (equal? (car (cdr r)) "probe"))
+         (set! *propose-tag* "propose_heal")
+         (display "PROPOSE tag=propose_heal")
+         (newline)
+         (list #f "propose_heal"))
+        (#t
+         (set! *propose_tag* "propose_reject")
+         (display "PROPOSE tag=propose_reject")
+         (newline)
+         (list #f "propose_reject"))))))
+
+(define (mk:propose-file! path)
+  (mk:sync-main!)
+  (let ((body (try (read-file path) (catch (e) #f))))
+    (if (not (string? body))
+        (begin
+          (display "GATE reject reason=read")
+          (newline)
+          (set! *propose-tag* "propose_reject")
+          (display "PROPOSE tag=propose_reject")
+          (newline)
+          (list #f "propose_reject"))
+        (mk:propose-body! body))))
