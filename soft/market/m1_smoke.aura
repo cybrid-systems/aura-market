@@ -1,0 +1,140 @@
+;; Mid-run hot-strategy swap/heal, then an honest dual race.
+;; Prints SWAP, HEAL, MUTATE, KEEP, DROP, and MARKET_M1_OK.
+;; fiber_live only if the one race joined both fibers. M0 is a different file.
+(load "/workspace/aura-market/soft/market/book.aura")
+(load "/workspace/aura-market/soft/market/rules.aura")
+(load "/workspace/aura-market/soft/market/hot.aura")
+
+(define *fail* 0)
+
+(define (expect tag got want)
+  (display tag)
+  (display "=")
+  (display (mk:nstr got))
+  (if (= got want)
+      (display " OK")
+      (begin
+        (display " WANT=")
+        (display (mk:nstr want))
+        (set! *fail* (+ *fail* 1))))
+  (newline)
+  got)
+
+(define (tag? r want)
+  (and (pair? r) (pair? (cdr r)) (equal? (car (cdr r)) want)))
+
+(define (pack= p hs sz ib)
+  (and (mk:pack-ok? p)
+       (= (mk:pack-hs p) hs)
+       (= (mk:pack-sz p) sz)
+       (= (mk:pack-ib p) ib)))
+
+(define (main)
+  (let ((seeded (mk:strategy-seed!)))
+    (if (not (and (pair? seeded) (equal? (car seeded) #t)))
+        (display "MARKET_M1_FAIL seed\n")
+        (begin
+          (mk:reset!)
+          (mk:apply-law-params!)
+          (let loop ((i 0))
+            (if (< i 10)
+                (begin
+                  (mk:live-tick! "mk:law")
+                  (loop (+ i 1)))))
+          (let ((bad (mk:apply-body!
+                      "(lambda () (begin (set! *tick* 9) (list 3 5 0)))"
+                      "bad")))
+            (if (not (tag? bad "gate"))
+                (begin
+                  (display "GATE_FAIL")
+                  (newline)
+                  (set! *fail* (+ *fail* 1)))))
+          (expect "TICK_PRE" *tick* 10)
+          (if (not (pack= (mk:law) 3 5 0))
+              (begin
+                (display "SLOT_FAIL pre")
+                (newline)
+                (set! *fail* (+ *fail* 1))))
+          (let ((sw (mk:apply-body! *mid-body* "mid-swap")))
+            (if (not (tag? sw "swap"))
+                (begin
+                  (display "SWAP_FAIL")
+                  (newline)
+                  (set! *fail* (+ *fail* 1)))))
+          (expect "TICK_SWAP" *tick* 10)
+          (if (not (pack= (mk:law) 2 4 0))
+              (begin
+                (display "SLOT_FAIL swap")
+                (newline)
+                (set! *fail* (+ *fail* 1))))
+          (let loop ((i 0))
+            (if (< i 5)
+                (begin
+                  (mk:live-tick! "mk:law")
+                  (loop (+ i 1)))))
+          (expect "TICK_CONT" *tick* 15)
+          (let ((ugly (mk:apply-body!
+                       "(lambda () (list 3 5))"
+                       "ugly")))
+            (if (not (tag? ugly "probe"))
+                (begin
+                  (display "HEAL_FAIL")
+                  (newline)
+                  (set! *fail* (+ *fail* 1)))))
+          (expect "TICK_HEAL" *tick* 15)
+          ;; Last good snap is the mid body, not the seed wide.
+          (if (not (pack= (mk:law) 2 4 0))
+              (begin
+                (display "SLOT_FAIL heal")
+                (newline)
+                (set! *fail* (+ *fail* 1))))
+          (expect "BIAS_BOOST" *bias-boost* 1)
+          ;; Dual race is still tight vs wide on the pure sim path.
+          (set! *race-backend* 0)
+          (set! *race-spawned* 0)
+          (set! *race-joined* 0)
+          (set! *world-line* "host-sequential")
+          (let ((pair (mk:race-thunks!
+                       (lambda () (mm-tight))
+                       (lambda () (mm-wide)))))
+            (mk:decide! (car pair) (car (cdr pair))))
+          (mk:finish-world!)
+          (display "RACE tight=")
+          (display (mk:nstr *score-tight*))
+          (display " wide=")
+          (display (mk:nstr *score-wide*))
+          (newline)
+          (mk:stamp-world!)
+          (display "KEEP mid=")
+          (display (number->string *keep-mid*))
+          (display " reason=")
+          (display *keep-reason*)
+          (newline)
+          (display "DROP mid=")
+          (display (number->string *drop-mid*))
+          (display " reason=")
+          (display *drop-reason*)
+          (newline)
+          (expect "SCORE_TIGHT" *score-tight* -5)
+          (expect "SCORE_WIDE" *score-wide* 18)
+          (expect "MAIN_SCORE" *main-score* 18)
+          (expect "KEEP_MID" *keep-mid* 2)
+          (expect "DROP_MID" *drop-mid* 1)
+          (if (string=? *world-line* "fiber_live")
+              (if (not (and (> *race-backend* 0)
+                            (> *race-spawned* 0)
+                            (= *race-joined* *race-spawned*)))
+                  (begin
+                    (display "WORLD_FAIL")
+                    (newline)
+                    (set! *fail* (+ *fail* 1))))
+              (if (not (string=? *world-line* "host-sequential"))
+                  (begin
+                    (display "WORLD_FAIL")
+                    (newline)
+                    (set! *fail* (+ *fail* 1)))))
+          (if (= *fail* 0)
+              (display "MARKET_M1_OK\n")
+              (display "MARKET_M1_FAIL\n"))))))
+
+(main)
