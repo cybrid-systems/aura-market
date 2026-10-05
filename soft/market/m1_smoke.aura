@@ -42,26 +42,27 @@
                 (begin
                   (mk:live-tick! "mk:law")
                   (loop (+ i 1)))))
-          (let ((bad (mk:apply-body!
-                      "(lambda () (begin (set! *tick* 9) (list 3 5 0)))"
-                      "bad")))
-            (if (not (tag? bad "gate"))
-                (begin
-                  (display "GATE_FAIL")
-                  (newline)
-                  (set! *fail* (+ *fail* 1)))))
+          (define bad-r
+            (mk:apply-body!
+             "(lambda () (begin (set! *tick* 9) (list 3 5 0)))"
+             "bad"))
+          (if (not (tag? bad-r "gate"))
+              (begin
+                (display "GATE_FAIL")
+                (newline)
+                (set! *fail* (+ *fail* 1))))
           (expect "TICK_PRE" *tick* 10)
           (if (not (pack= (mk:law) 3 5 0))
               (begin
                 (display "SLOT_FAIL pre")
                 (newline)
                 (set! *fail* (+ *fail* 1))))
-          (let ((sw (mk:apply-body! *mid-body* "mid-swap")))
-            (if (not (tag? sw "swap"))
-                (begin
-                  (display "SWAP_FAIL")
-                  (newline)
-                  (set! *fail* (+ *fail* 1)))))
+          (define sw-r (mk:apply-body! *mid-body* "mid-swap"))
+          (if (not (tag? sw-r "swap"))
+              (begin
+                (display "SWAP_FAIL")
+                (newline)
+                (set! *fail* (+ *fail* 1))))
           (expect "TICK_SWAP" *tick* 10)
           (if (not (pack= (mk:law) 2 4 0))
               (begin
@@ -74,14 +75,15 @@
                   (mk:live-tick! "mk:law")
                   (loop (+ i 1)))))
           (expect "TICK_CONT" *tick* 15)
-          (let ((ugly (mk:apply-body!
-                       "(lambda () (list 3 5))"
-                       "ugly")))
-            (if (not (tag? ugly "probe"))
-                (begin
-                  (display "HEAL_FAIL")
-                  (newline)
-                  (set! *fail* (+ *fail* 1)))))
+          (define ugly-r
+            (mk:apply-body!
+             "(lambda () (list 3 5))"
+             "ugly"))
+          (if (not (tag? ugly-r "probe"))
+              (begin
+                (display "HEAL_FAIL")
+                (newline)
+                (set! *fail* (+ *fail* 1))))
           (expect "TICK_HEAL" *tick* 15)
           ;; Last good snap is the mid body, not the seed wide.
           (if (not (pack= (mk:law) 2 4 0))
