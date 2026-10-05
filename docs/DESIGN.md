@@ -40,7 +40,8 @@ printed only when both joins land.
    serve-async.
 
 M0 does not call `hot-strategy:swap!`, `hot-strategy:heal!`,
-`mutate:rebind`, or `eval-current`.
+`mutate:rebind`, or `eval-current`. M1/M2 do: the MM param pack lives in
+`mk:law` as a real hot-strategy slot.
 
 ## What M0 actually does
 
@@ -66,6 +67,36 @@ replay winner into the main book
     │  TAPE every 12 ticks
     ▼
 MARKET_M0_OK
+```
+
+
+## What M1 actually does
+
+```
+m1_smoke.aura
+    │  seed mk:law / mk:shadow as wide (3 5 0)
+    │  10 live ticks → MUTATE at tick 8 (bias-boost=1)
+    │  gate-reject a set! body (tick stays 10)
+    │  SWAP mid-spread (2 4 0) at tick 10
+    │  5 more live ticks (tick=15)
+    │  ugly short list → HEAL to mid-spread (tick stays 15)
+    ▼
+dual race mm-tight vs mm-wide (same as M0 scores)
+    ▼
+MARKET_M1_OK
+```
+
+## What M2 actually does
+
+```
+propose_minimax.py (host, optional) → (lambda () (list spread size bias))
+    ▼
+Soft gate → swap into mk:law → race vs mk:shadow
+    │  KEEP iff trial > base
+    │  else DROP + heal!
+    ▼
+fixture smoke → MARKET_M2_PROPOSE_OK
+burn.sh → MARKET_BURN_OK
 ```
 
 ## Soft vs C
@@ -99,16 +130,28 @@ C must not keep a second book.
 | Path | Role |
 |------|------|
 | `soft/market/book.aura` | book, flow, gate, matching, score, tape |
+| `soft/market/book_m12.aura` | M1/M2 pack helpers + live tick |
 | `soft/market/rules.aura` | two strategies, race, KEEP/DROP, honest world line |
+| `soft/market/hot.aura` | `mk:law` hot-strategy seed / swap / heal |
+| `soft/market/propose.aura` | gate → race vs shadow → KEEP / DROP |
 | `soft/market/m0_smoke.aura` | evidence, `MARKET_M0_OK` |
-| `docs/m0.md` | scripted numbers |
+| `soft/market/m1_smoke.aura` | evidence, `MARKET_M1_OK` |
+| `soft/market/m2_propose_smoke.aura` | fixture propose, `MARKET_M2_PROPOSE_OK` |
+| `soft/market/burn.aura` | multi-round propose burn |
+| `docs/m0.md` / `m1.md` / `m2.md` | scripted numbers |
 | `scripts/run_soft.sh` | docker tip binary |
 | `scripts/smoke_soft.sh` | M0 evidence |
+| `scripts/smoke_m1.sh` | M1 evidence |
+| `scripts/smoke_m2.sh` | M2 fixture evidence |
+| `scripts/burn.sh` | burn rounds |
+| `scripts/propose_minimax.py` | host MiniMax → lambda file |
 | `scripts/smoke.sh` | stack entry, `MARKET_SMOKE_OK` |
 
 ## 中文
 
 产品是同一串吃单流上两个做市策略的赛跑。Soft 拥有订单簿和门禁。坏单在
 门禁处被拒并记录原因，分数更高的策略 KEEP 进主簿，另一个 DROP。M0 没有
-C 视口。只有两条 fiber 都 join 到分数、且 backend > 0 时才印
+C 视口。M1 中途 `hot-strategy:swap!` / `heal!` 换做市参数包。M2 由宿主
+脚本向 MiniMax 提议 `(spread size bias)`，Soft 门禁后只在分数严格更高时
+KEEP。只有两条 fiber 都 join 到分数、且 backend > 0 时才印
 `fiber_live`，否则是 `host-sequential`。
