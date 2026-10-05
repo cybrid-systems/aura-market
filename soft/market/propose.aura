@@ -55,7 +55,7 @@
          (newline)
          (list #f "propose_heal"))
         (#t
-         (set! *propose_tag* "propose_reject")
+         (set! *propose-tag* "propose_reject")
          (display "PROPOSE tag=propose_reject")
          (newline)
          (list #f "propose_reject"))))))
