@@ -2,6 +2,7 @@
 ;; Prints SWAP, HEAL, MUTATE, KEEP, DROP, and MARKET_M1_OK.
 ;; fiber_live only if the one race joined both fibers. M0 is a different file.
 (load "/workspace/aura-market/soft/market/book.aura")
+(load "/workspace/aura-market/soft/market/book_m12.aura")
 (load "/workspace/aura-market/soft/market/rules.aura")
 (load "/workspace/aura-market/soft/market/hot.aura")
 
@@ -43,7 +44,7 @@
                   (loop (+ i 1)))))
           (let ((bad (mk:apply-body!
                       "(lambda () (begin (set! *tick* 9) (list 3 5 0)))"
-                      "bad")))
+                      "bad"))
             (if (not (tag? bad "gate"))
                 (begin
                   (display "GATE_FAIL")
