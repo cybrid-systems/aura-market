@@ -1,6 +1,7 @@
 ;; One host-written lambda. Any honest gate result is success.
 ;; Missing file or a Soft error is not. HTTP stays in the host script.
 (load "/workspace/aura-market/soft/market/book.aura")
+(load "/workspace/aura-market/soft/market/book_m12.aura")
 (load "/workspace/aura-market/soft/market/rules.aura")
 (load "/workspace/aura-market/soft/market/propose.aura")
 

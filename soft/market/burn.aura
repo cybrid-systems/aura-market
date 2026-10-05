@@ -1,6 +1,7 @@
 ;; Multi-round propose → gate → play. Ticks default to 24 (smaller than M0).
 ;; Each round reads MARKET_ROUND_DIR/<n>.lambda. KEEP only on a strict improvement.
 (load "/workspace/aura-market/soft/market/book.aura")
+(load "/workspace/aura-market/soft/market/book_m12.aura")
 (load "/workspace/aura-market/soft/market/rules.aura")
 (load "/workspace/aura-market/soft/market/propose.aura")
 
