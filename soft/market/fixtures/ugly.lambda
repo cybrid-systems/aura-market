@@ -1,1 +1,1 @@
-(lambda () (list 3 5))
+(lambda () (list 2))
