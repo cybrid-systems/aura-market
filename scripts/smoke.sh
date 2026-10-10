@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Stack: M0 Soft race, M1 hot-strategy + worldline, M2 fixture propose,
-# optional live MiniMax (SKIP when no key), fixture burn.
+# Stack: M0 Soft race through M4 features, optional live MiniMax
+# (SKIP when no key), fixture burn.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 mkdir -p "$ROOT/out"
 
-bash "$ROOT/scripts/smoke_m3.sh"
+bash "$ROOT/scripts/smoke_m4.sh"
 
 keyfile="/home/box/.config/aura-build/minimax_api_key"
 if [[ ! -s "$keyfile" ]]; then

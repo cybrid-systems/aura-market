@@ -1,4 +1,4 @@
-;; M4 feature law. MARKET_M4_OK arrives in M4-6.
+;; M4 feature law. Ends with MARKET_M4_OK when every section passes.
 (load "/workspace/aura-market/soft/market/book.aura")
 (load "/workspace/aura-market/soft/market/book_m12.aura")
 (load "/workspace/aura-market/soft/market/features.aura")
@@ -116,3 +116,7 @@
 (if (= *fail* 0)
     (display "M4_5_OK\n")
     (display "M4_5_FAIL\n"))
+
+(if (= *fail* 0)
+    (display "MARKET_M4_OK\n")
+    (display "MARKET_M4_FAIL\n"))

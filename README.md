@@ -7,7 +7,7 @@ gate before it may rest. A thin C viewport, later, only blits the book.
 There is no C binary in this tree.
 
 Design: [`docs/DESIGN.md`](docs/DESIGN.md).
-Milestones: [`docs/m0.md`](docs/m0.md), [`docs/m1.md`](docs/m1.md), [`docs/m2.md`](docs/m2.md).
+Milestones: [`docs/m0.md`](docs/m0.md), [`docs/m1.md`](docs/m1.md), [`docs/m2.md`](docs/m2.md), [`docs/m3.md`](docs/m3.md), [`docs/m4.md`](docs/m4.md).
 Repo: https://github.com/cybrid-systems/aura-market
 
 This is not an exchange and not a trading system. The product is the Aura
@@ -36,13 +36,16 @@ Image `ghcr.io/cybrid-systems/dev:v1.0.9`, Soft tip binary
 runs Soft inside Docker with `--entrypoint /usr/local/bin/gosu`). Soft runs
 natively in that container (no nested docker). Never `build_soft4132`.
 Needs `AURA_SANDBOX=off`. `python3` is the host interpreter for
-`scripts/propose_minimax.py` and `scripts/burn.sh`.
+`scripts/propose_minimax.py` and `scripts/burn.sh`. When docker is
+absent and `/workspace/aura-grok/build/aura` is executable,
+`scripts/run_soft.sh` uses that binary.
 
 ```bash
 bash scripts/smoke_soft.sh    # M0 → MARKET_M0_OK
 bash scripts/smoke_m1.sh      # SWAP / HEAL / MUTATE / KEEP / DROP → MARKET_M1_OK
 bash scripts/smoke_m2.sh      # fixture propose → MARKET_M2_PROPOSE_OK
 bash scripts/smoke_m3.sh      # panel minimum, re-checks M0–M2 → MARKET_M3_OK
+bash scripts/smoke_m4.sh      # features and six-packs, re-checks M0–M3 → MARKET_M4_OK
 bash scripts/smoke.sh         # the stack, plus live MiniMax or LIVE_SKIP + burn
 bash scripts/burn.sh          # 3 rounds, horizon 24; fixtures if MARKET_PROPOSE=0
 ```
