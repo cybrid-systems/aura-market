@@ -3,10 +3,62 @@
 (require "std/swarm" all:)
 (load "/workspace/aura-market/soft/market/book.aura")
 (load "/workspace/aura-market/soft/market/book_m12.aura")
+(load "/workspace/aura-market/soft/market/rules.aura")
 (load "/workspace/aura-market/soft/market/panel.aura")
 
+;; panel=seq inside a parallel swarm. panel=fiber only when that swarm
+;; is not spawning, so the panel is the single fiber layer.
+(define *panel-mode* "seq")
+(define *search-parallel* #f)
+
+(define (mk:search-parallel! flag)
+  (set! *search-parallel* (if flag #t #f))
+  (swarm:parallel! *search-parallel*)
+  (if *search-parallel*
+      (set! *panel-mode* "seq"))
+  (display "panel=")
+  (display *panel-mode*)
+  (newline)
+  *panel-mode*)
+
+(define (mk:search-mode! mode)
+  (if (and (string=? mode "fiber") *search-parallel*)
+      (begin
+        (display "panel=seq\n")
+        (display "NESTED_SPAWN_FAIL\n")
+        (set! *panel-mode* "seq")
+        "seq")
+      (begin
+        (set! *panel-mode* mode)
+        (display "panel=")
+        (display mode)
+        (newline)
+        mode)))
+
+(define (mk:fitness-fiber p)
+  (set! *race-backend* 0)
+  (set! *race-spawned* 0)
+  (set! *race-joined* 0)
+  (set! *world-line* "host-sequential")
+  (let ((qf (mk:qf-pack p)))
+    (let ((xs (mk:race-many!
+               (list (lambda () (mk:r-score (mk:sim-go qf 9 "race" 0 20261005 *ticks* 1 "calm")))
+                     (lambda () (mk:r-score (mk:sim-go qf 9 "race" 0 1265 *ticks* 1 "calm")))
+                     (lambda () (mk:r-score (mk:sim-go qf 9 "race" 0 9 *ticks* 1 "calm")))
+                     (lambda () (mk:r-score (mk:sim-go qf 9 "race" 0 19 *ticks* 1 "calm")))))))
+      (mk:finish-world!)
+      (mk:stamp-world!)
+      (mk:list-min xs))))
+
 (define (mk:fitness p)
-  (mk:list-min (mk:panel-seq-feat (mk:qf-pack p) 9)))
+  (cond
+    ((and (string=? *panel-mode* "fiber") *search-parallel*)
+     (display "NESTED_SPAWN_FAIL\n")
+     -1000000000)
+    ((string=? *panel-mode* "fiber")
+     (mk:fitness-fiber p))
+    (#t
+     (mk:list-min (mk:panel-seq-feat (mk:qf-pack p) 9)))))
 
 (define (mk:nearest x)
   (floor (+ x 0.5)))
