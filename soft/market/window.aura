@@ -12,6 +12,7 @@
 (define *win-score* 0)
 (define *win-base* #f)
 (define *win-next* #f)
+(define *win-body* #f)
 (define *win-phase* "base")
 
 (define (mk:window-base! n)
@@ -24,6 +25,7 @@
 
 ;; Swap only when the past window is strictly above the stored base.
 ;; The next window heals when it is not strictly above that base.
+;; A strictly better trial stays and becomes the shadow and the new base.
 (define (mk:window-boundary! score tick)
   (cond
     ((and (string=? *win-phase* "trial")
@@ -37,6 +39,15 @@
      (display " reason=window")
      (newline)
      score)
+    ((and (string=? *win-phase* "trial")
+          (number? *win-base*)
+          (> score *win-base*)
+          (string? *win-body*))
+     (mk:promote-shadow! *win-body*)
+     (set! *win-base* score)
+     (set! *win-phase* "base")
+     (mk:apply-law-params!)
+     score)
     ((and (string=? *win-phase* "base")
            (string? *win-next*)
            (number? *win-base*)
@@ -45,6 +56,7 @@
        (set! *win-base* score)
        (set! *win-phase* "trial")
        (set! *win-next* #f)
+       (set! *win-body* body)
        (mk:apply-body! body "window")
        score))
     (#t

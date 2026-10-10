@@ -117,6 +117,20 @@
   (hot-strategy:swap! "mk:law" *main-body* "choose")
   *main-body*)
 
+;; Keep a window winner: mk:shadow becomes this body, and the snapshot
+;; taken afterwards is the heal target. Does not change *tick*.
+(define (mk:promote-shadow! body)
+  (let ((clean (if (string? body) (string-trim body) "")))
+    (if (not (mk:body-ok? clean))
+        #f
+        (let ((sw (hot-strategy:swap! "mk:shadow" clean "window")))
+          (if (not (and (pair? sw) (equal? (car sw) #t)))
+              #f
+              (begin
+                (set! *main-body* clean)
+                (hot-strategy:register! "mk:law" clean)
+                #t))))))
+
 (define (mk:pack-from-body body)
   (let ((clean (if (string? body) (string-trim body) "")))
     (if (not (mk:body-ok? clean))
