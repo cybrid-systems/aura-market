@@ -1,7 +1,48 @@
-;; Integer-pack fitness. Pure: no swap, no set! of the main book.
+;; Integer-pack fitness and a quantized grid. Pure fitness: no swap.
+;; std/swarm stays in aura-grok. Floats are clamped before they reach the book.
+(require "std/swarm" all:)
 (load "/workspace/aura-market/soft/market/book.aura")
 (load "/workspace/aura-market/soft/market/book_m12.aura")
 (load "/workspace/aura-market/soft/market/panel.aura")
 
 (define (mk:fitness p)
   (mk:list-min (mk:panel-seq-feat (mk:qf-pack p) 9)))
+
+(define (mk:nearest x)
+  (floor (+ x 0.5)))
+
+(define (mk:clamp n lo hi)
+  (if (< n lo) lo (if (> n hi) hi n)))
+
+;; floor can leave an inexact. quotient forces an integer.
+(define (mk:as-int n)
+  (quotient (floor n) 1))
+
+;; Spread 1..6, size 1..8, weight -4..4. Bias stays 0.
+;; Out-of-range points are clamped, not dropped.
+(define (mk:pack-from-ind ind)
+  (list (mk:as-int (mk:clamp (mk:nearest (car ind)) 1 6))
+        (mk:as-int (mk:clamp (mk:nearest (car (cdr ind))) 1 8))
+        0
+        0
+        (mk:as-int (mk:clamp (mk:nearest (car (cdr (cdr ind)))) -4 4))
+        0))
+
+(define (mk:map-packs inds)
+  (if (null? inds)
+      (list)
+      (cons (mk:pack-from-ind (car inds))
+            (mk:map-packs (cdr inds)))))
+
+(define (mk:search-init!)
+  (swarm:init (hash "kind" "grid"
+                    "dim" 3
+                    "pop" 16
+                    "bins" 3
+                    "parallel" #f
+                    "bounds" (list (list 1.0 5.0)
+                                   (list 1.0 5.0)
+                                   (list -4.0 4.0)))))
+
+(define (mk:search-packs)
+  (mk:map-packs (swarm:population)))
