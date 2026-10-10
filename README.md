@@ -78,8 +78,8 @@ not land, the line is `host-sequential` and `fiber_live` is not printed.
 
 M1's mid-run swap prints `SWAP` / `HEAL` / `MUTATE tick=8 bias-boost=1`,
 then the same tight/wide scores. M2's better fixture (`(3 3 0)`) scores
-`36` and is KEEP. The tight fixture is DROP. Fixture burn (horizon 24)
-KEEPs round 1 (`39` vs wide `37`) and DROPs a tie and a worse body.
+`36` and is KEEP. The tight fixture is DROP. Fixture burn (horizon 24, panel minimum)
+KEEPs round 1 (`10` vs wide `5`) and DROPs a tie and a worse body.
 Detail in `docs/m1.md` and `docs/m2.md`.
 
 ## Engine

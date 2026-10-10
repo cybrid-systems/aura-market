@@ -105,7 +105,7 @@
                    (display (number->string *tick*))
                    (display " reason=probe")
                    (newline)
-                   (list #f "probe"))))))))))
+                   (list #f "probe")))))))))
 
 (define (mk:sync-main!)
   (hot-strategy:swap! "mk:shadow" *main-body* "shadow")

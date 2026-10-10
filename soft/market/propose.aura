@@ -4,11 +4,19 @@
 ;; KEEP only when the trial score is strictly greater. A tie DROPs.
 
 (load "/workspace/aura-market/soft/market/hot.aura")
+(load "/workspace/aura-market/soft/market/panel.aura")
+
+;; Panel minimum, sequential inside a race thunk so fibers stay one layer.
+(define (mk:pack-min p)
+  (mk:list-min
+   (mk:panel-seq
+    (mk:qf-from (mk:pack-hs p) (mk:pack-sz p) (mk:pack-ib p))
+    9)))
 
 (define (mk:propose-score! clean)
   (let ((pair (mk:race-thunks!
-               (lambda () (mk:score-pack (mk:shadow)))
-               (lambda () (mk:score-pack (mk:law))))))
+               (lambda () (mk:pack-min (mk:shadow)))
+               (lambda () (mk:pack-min (mk:law))))))
     (let ((base (car pair))
           (trial (car (cdr pair))))
       (set! *base-last* base)

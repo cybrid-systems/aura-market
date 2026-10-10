@@ -1,7 +1,9 @@
 ;; M3 score probe. Grows as the milestone lands. MARKET_M3_OK is M3-6.
 (load "/workspace/aura-market/soft/market/book.aura")
+(load "/workspace/aura-market/soft/market/book_m12.aura")
 (load "/workspace/aura-market/soft/market/rules.aura")
 (load "/workspace/aura-market/soft/market/panel.aura")
+(load "/workspace/aura-market/soft/market/propose.aura")
 
 (define *fail* 0)
 
@@ -110,3 +112,54 @@
 (if (= *fail* 0)
     (display "M3_3_OK\n")
     (display "M3_3_FAIL\n"))
+
+;; M3-4. Minimum is the KEEP score. Median is recorded only.
+(define wide-agg (mk:panel-report! quote-wide 2 "mm-wide"))
+(define tight-agg (mk:panel-report! quote-tight 1 "mm-tight"))
+(expect "WIDE_MIN" (car wide-agg) 18)
+(expect "WIDE_MED" (car (cdr wide-agg)) 56)
+(expect "TIGHT_MIN" (car tight-agg) -5)
+(expect "TIGHT_MED" (car (cdr tight-agg)) 3)
+(expect "MEDIAN_NEG" (mk:median (list -5 -2 8 22)) 3)
+(expect "BOOK_AGG" (length *book*) 0)
+
+(if (= *fail* 0)
+    (display "M3_4_OK\n")
+    (display "M3_4_FAIL\n"))
+
+;; M3-5. Wins seed 20261005, loses the panel minimum, so DROP and heal.
+(define (tag? r want)
+  (and (pair? r) (pair? (cdr r)) (equal? (car (cdr r)) want)))
+
+(define seeded (mk:strategy-seed!))
+(if (not (and (pair? seeded) (equal? (car seeded) #t)))
+    (begin
+      (display "SEED_FAIL")
+      (newline)
+      (set! *fail* (+ *fail* 1))))
+(define spec-one (mk:score-pack (list 2 2 2)))
+(expect "SPEC_SEED" spec-one 50)
+(define spec (mk:propose-file!
+              "/workspace/aura-market/soft/market/fixtures/specialist.lambda"))
+(if (not (tag? spec "propose_drop"))
+    (begin
+      (display "SPEC_DROP_FAIL")
+      (newline)
+      (set! *fail* (+ *fail* 1))))
+(expect "SPEC_BASE" *base-last* 18)
+(expect "SPEC_TRIAL" *trial-last* -4)
+(if (> spec-one *base-last*)
+    0
+    (begin
+      (display "SPEC_SEED_WIN_FAIL")
+      (newline)
+      (set! *fail* (+ *fail* 1))))
+(if (not (equal? (mk:law) (list 3 5 0)))
+    (begin
+      (display "SPEC_HEAL_FAIL")
+      (newline)
+      (set! *fail* (+ *fail* 1))))
+
+(if (= *fail* 0)
+    (display "M3_5_OK\n")
+    (display "M3_5_FAIL\n"))
