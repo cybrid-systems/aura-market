@@ -1,0 +1,118 @@
+;; Production reference. M0 tape stays fee-free. Ends with MARKET_REF_OK.
+(load "/workspace/aura-market/soft/market/ref.aura")
+
+(define *fail* 0)
+
+(define (expect tag got want)
+  (display tag)
+  (display "=")
+  (display (if (number? got) (mk:nstr got) got))
+  (if (equal? got want)
+      (display " OK")
+      (begin
+        (display " WANT=")
+        (display (if (number? want) (mk:nstr want) want))
+        (set! *fail* (+ *fail* 1))))
+  (newline)
+  got)
+
+(define (pack= p hs sz ib)
+  (and (mk:pack-ok? p)
+       (= (mk:pack-hs p) hs)
+       (= (mk:pack-sz p) sz)
+       (= (mk:pack-ib p) ib)))
+
+(define (run n)
+  (let loop ((i 0))
+    (if (< i n)
+        (begin
+          (mk:live-tick! "mk:law")
+          (loop (+ i 1))))))
+
+(mk:strategy-seed!)
+(expect "M0_TIGHT" (mk:score quote-tight 1) -5)
+(expect "M0_WIDE" (mk:score quote-wide 2) 18)
+
+;; Fee-free live tape. Same windows as the wide book with the tick-8 bump.
+(mk:ref-reset!)
+(mk:apply-law-params!)
+(run 48)
+(expect "LIVE_TICK" *tick* 48)
+(expect "LIVE_FAILS" *ref-fails* 0)
+(expect "M0_WIDE_AGAIN" (mk:score quote-wide 2) 18)
+
+;; One currency unit per filled unit. Cash stays gross minus fees.
+(mk:ref-reset!)
+(set! *fee-per-unit* 1)
+(mk:apply-law-params!)
+(run 48)
+(expect "FEE_CASH" *cash* (- *gross-cash* *fee-paid*))
+(expect "FEE_FAILS" *ref-fails* 0)
+(if (> *fee-paid* 0)
+    (display "FEE_PAID OK\n")
+    (begin
+      (display "FEE_PAID WANT=>0\n")
+      (set! *fail* (+ *fail* 1))))
+(expect "FEE_UNITS" *fee-paid* 41)
+
+;; Manual halt freezes inventory, cash, and fills. The clock moves.
+(mk:ref-reset!)
+(set! *fee-per-unit* 0)
+(set! *loss-floor* #f)
+(mk:apply-law-params!)
+(run 8)
+(define *hold-inv* *inv*)
+(define *hold-fills* *fills*)
+(define *hold-cash* *cash*)
+(mk:halt! "manual")
+(run 12)
+(expect "HALT_INV" *inv* *hold-inv*)
+(expect "HALT_FILLS" *fills* *hold-fills*)
+(expect "HALT_CASH" *cash* *hold-cash*)
+(expect "HALT_TICK" *tick* 20)
+(expect "HALT_BOOK" (length *book*) 0)
+(expect "HALT_FLAG" *halt* 1)
+(mk:resume!)
+(run 4)
+(expect "RESUME_TICK" *tick* 24)
+(expect "RESUME_FLAG" *halt* 0)
+(expect "HALT_FAILS" *ref-fails* 0)
+
+;; A floor above any live score pulls quotes after the breaching tick.
+(mk:ref-reset!)
+(mk:apply-law-params!)
+(mk:arm-floor! 100000)
+(run 1)
+(expect "FLOOR_FLAG" *halt* 1)
+(define *floor-inv* *inv*)
+(define *floor-fills* *fills*)
+(run 5)
+(expect "FLOOR_INV" *inv* *floor-inv*)
+(expect "FLOOR_FILLS" *fills* *floor-fills*)
+(expect "FLOOR_TICK" *tick* 6)
+(expect "FLOOR_FAILS" *ref-fails* 0)
+(set! *loss-floor* #f)
+
+;; Past window 1 beats base 0, so the fat pack is swapped in.
+;; The next window does not beat that base, so heal restores wide.
+(mk:ref-reset!)
+(mk:apply-law-params!)
+(mk:window-base! 0)
+(mk:window-arm! "(lambda () (list 9 5 0))")
+(run 36)
+(expect "HEAL_TICK" *tick* 36)
+(if (pack= (mk:law) 3 5 0)
+    (display "HEAL_LAW OK\n")
+    (begin
+      (display "HEAL_LAW WANT=(3 5 0)\n")
+      (set! *fail* (+ *fail* 1))))
+(if (pack= (mk:shadow) 3 5 0)
+    (display "HEAL_SHADOW OK\n")
+    (begin
+      (display "HEAL_SHADOW WANT=(3 5 0)\n")
+      (set! *fail* (+ *fail* 1))))
+(expect "JOURNAL_FAILS" *ref-fails* 0)
+
+(if (= *fail* 0)
+    (display "MARKET_REF_OK\n")
+    (display "MARKET_REF_FAIL\n"))

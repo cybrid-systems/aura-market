@@ -105,6 +105,64 @@
   ;; Prefer stamped pnl/penalty (set by mk:stamp!). Mid-run ticks refresh them.
   (- *pnl* *penalty*))
 
+;; Live-book production controls. Defaults keep the M0 tape and the
+;; fee-free live window unchanged. *loss-floor* stays armed across reset.
+(define *halt* 0)
+(define *loss-floor* #f)
+(define *fee-per-unit* 0)
+(define *fee-paid* 0)
+(define *gross-cash* 0)
+(define *last-fill* 0)
+(define *last-px* 0)
+(define *last-side* 0)
+
+;; ref.aura overrides these. Unloaded, they print nothing and halt nothing.
+(define (mk:journal! action base trial) 0)
+(define (mk:ref-check!) 0)
+
+(define (mk:arm-floor! n)
+  (set! *loss-floor* n)
+  n)
+
+(define (mk:halt! reason)
+  (set! *halt* 1)
+  (set! *book* (list))
+  (set! *last-fill* 0)
+  (display "HALT tick=")
+  (display (number->string *tick*))
+  (display " reason=")
+  (display reason)
+  (newline)
+  (mk:journal! "halt" (mk:live-score) (if (number? *loss-floor*) *loss-floor* 0))
+  *tick*)
+
+(define (mk:resume!)
+  (set! *halt* 0)
+  (display "RESUME tick=")
+  (display (number->string *tick*))
+  (newline)
+  (mk:journal! "resume" (mk:live-score) 0)
+  *tick*)
+
+;; Clock continues. No quote, no fill, inventory and cash stay put.
+;; Fair still marks pnl. The strategy window does not close while halted.
+(define (mk:tick-halted! tag)
+  (let* ((r *rng*)
+         (drift (mk:t-drift r))
+         (fair1 (+ *fair* drift)))
+    (set! *ld0* *ld1*)
+    (set! *ld1* *ld2*)
+    (set! *ld2* *ld3*)
+    (set! *ld3* 0)
+    (set! *fair* fair1)
+    (set! *book* (list))
+    (set! *last-fill* 0)
+    (set! *rng* (mk:seed-step r))
+    (set! *tick* (+ *tick* 1))
+    (set! *pnl* (+ *cash* (* *inv* *fair*)))
+    (mk:ref-check!)
+    *tick*))
+
 (define (mk:reset!)
   (set! *book* (list))
   (set! *fair* *fair0*)
@@ -123,6 +181,12 @@
   (set! *ld3* 0)
   (set! *rng* (mk:seed-step *seed*))
   (set! *slot-tag* "live")
+  (set! *halt* 0)
+  (set! *fee-paid* 0)
+  (set! *gross-cash* 0)
+  (set! *last-fill* 0)
+  (set! *last-px* 0)
+  (set! *last-side* 0)
   0)
 
 ;; M8 overrides this. The no-op keeps M1 from printing window lines.
@@ -130,7 +194,15 @@
 
 ;; One in-play tick on the live book using *hs*/*sz*/*ib* (+ bias-boost).
 ;; Does not retcon prior ticks. MUTATE at tick 8 raises *bias-boost*.
+;; A halted slot consumes the clock and marks fair, and does not quote.
 (define (mk:tick! tag)
+  (if (= *halt* 1)
+      (begin
+        (set! *slot-tag* tag)
+        (mk:tick-halted! tag))
+      (mk:tick-open! tag)))
+
+(define (mk:tick-open! tag)
   (set! *slot-tag* tag)
   (let* ((r *rng*)
          (drift (mk:t-drift r))
@@ -158,7 +230,9 @@
          (f (if crosses (mk:min tq (mk:o-qty hit)) 0))
          (px (if crosses (mk:o-px hit) 0))
          (inv1 (if (= side 0) (- *inv* f) (+ *inv* f)))
-         (cash1 (if (= side 0) (+ *cash* (* f px)) (- *cash* (* f px))))
+         (gross-delta (if (= side 0) (* f px) (- 0 (* f px))))
+         (fee (* f *fee-per-unit*))
+         (cash1 (- (+ *cash* gross-delta) fee))
          (rest (if (and crosses (> (- (mk:o-qty hit) f) 0))
                    (if (= side 0)
                        (append (if (mk:side-of bk 0) (list (mk:side-of bk 0)) (list))
@@ -176,7 +250,12 @@
     (set! *ld3* (- inv1 *inv*))
     (set! *fair* fair1)
     (set! *inv* inv1)
+    (set! *gross-cash* (+ *gross-cash* gross-delta))
+    (set! *fee-paid* (+ *fee-paid* fee))
     (set! *cash* cash1)
+    (set! *last-fill* f)
+    (set! *last-px* px)
+    (set! *last-side* side)
     (set! *book* rest)
     (set! *invsum* (+ *invsum* (mk:abs inv1)))
     (set! *fills* (+ *fills* (if crosses 1 0)))
@@ -191,5 +270,6 @@
           (display "MUTATE tick=8 bias-boost=1 slot=")
           (display tag)
           (newline)))
+    (mk:ref-check!)
     (mk:window-note!)
     *tick*))

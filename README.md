@@ -7,7 +7,7 @@ gate before it may rest. A thin C viewport, later, only blits the book.
 There is no C binary in this tree.
 
 Design: [`docs/DESIGN.md`](docs/DESIGN.md).
-Milestones: [`docs/m0.md`](docs/m0.md), [`docs/m1.md`](docs/m1.md), [`docs/m2.md`](docs/m2.md), [`docs/m3.md`](docs/m3.md), [`docs/m4.md`](docs/m4.md), [`docs/m5.md`](docs/m5.md), [`docs/m6.md`](docs/m6.md), [`docs/m7.md`](docs/m7.md), [`docs/m8.md`](docs/m8.md).
+Milestones: [`docs/m0.md`](docs/m0.md), [`docs/m1.md`](docs/m1.md), [`docs/m2.md`](docs/m2.md), [`docs/m3.md`](docs/m3.md), [`docs/m4.md`](docs/m4.md), [`docs/m5.md`](docs/m5.md), [`docs/m6.md`](docs/m6.md), [`docs/m7.md`](docs/m7.md), [`docs/m8.md`](docs/m8.md). Live-book contract: [`docs/reference.md`](docs/reference.md).
 Repo: https://github.com/cybrid-systems/aura-market
 
 This is not an exchange and not a trading system. The product is the Aura
@@ -50,6 +50,7 @@ bash scripts/smoke_m6.sh      # score parts and fat-px, re-checks M0–M4 → MA
 bash scripts/smoke_m7.sh      # regime worldlines, re-checks M0–M6 → MARKET_M7_OK
 bash scripts/smoke_m5.sh      # grid search, no MiniMax → MARKET_M5_OK
 bash scripts/smoke_m8.sh      # rolling window, fixture packs → MARKET_M8_OK
+bash scripts/smoke_ref.sh     # fee, halt, invariants, journal → MARKET_REF_OK
 bash scripts/smoke.sh         # the stack, plus live MiniMax or LIVE_SKIP + burn
 bash scripts/burn.sh          # 3 rounds, horizon 24; fixtures if MARKET_PROPOSE=0
 ```
@@ -103,6 +104,7 @@ Detail in `docs/m1.md` and `docs/m2.md`.
 | `soft/market/m1_smoke.aura` | `MARKET_M1_OK` |
 | `soft/market/m2_propose_smoke.aura` | `MARKET_M2_PROPOSE_OK` |
 | `soft/market/burn.aura` | multi-round propose burn |
+| `soft/market/ref.aura` | live fee, halt, invariant, decision journal |
 | `scripts/run_soft.sh` | docker tip binary |
 | `scripts/smoke_soft.sh` | M0 evidence |
 | `scripts/smoke_m1.sh` | M1 evidence |
@@ -153,6 +155,7 @@ join 到分数时才印 `fiber_live`（这次是 `backend=2 joins=2/2`，线程�
 bash scripts/smoke_soft.sh     # MARKET_M0_OK
 bash scripts/smoke_m1.sh       # MARKET_M1_OK
 bash scripts/smoke_m2.sh       # MARKET_M2_PROPOSE_OK
+bash scripts/smoke_ref.sh      # MARKET_REF_OK
 bash scripts/smoke.sh          # MARKET_SMOKE_OK
 bash scripts/burn.sh           # MARKET_BURN_OK（MARKET_PROPOSE=0 用 fixture）
 ```

@@ -43,6 +43,7 @@
             (newline)
             (display "PROPOSE tag=propose_keep")
             (newline)
+            (mk:journal! "keep" base trial)
             (mk:stamp-pack! (mk:law) "mk:law")
             (list #t "propose_keep"))
           (begin
@@ -55,6 +56,7 @@
             (newline)
             (display "PROPOSE tag=propose_drop")
             (newline)
+            (mk:journal! "drop" base trial)
             (list #f "propose_drop"))))))
 
 ;; Regime KEEP only when every mechanism is strictly higher.
@@ -92,6 +94,7 @@
               (newline)
               (display "PROPOSE tag=propose_keep")
               (newline)
+              (mk:journal! "keep" base trial)
               (mk:stamp-pack! (mk:law) "mk:law")
               (list #t "propose_keep"))
             (begin
@@ -104,6 +107,7 @@
               (newline)
               (display "PROPOSE tag=propose_drop")
               (newline)
+              (mk:journal! "drop" base trial)
               (list #f "propose_drop")))))))
 
 (define (mk:propose-regime-body! body)
@@ -154,6 +158,7 @@
                   (newline)
                   (display "PROPOSE tag=propose_keep")
                   (newline)
+                  (mk:journal! "keep" base trial)
                   (mk:stamp-pack! (mk:law) "mk:law")
                   (list #t "propose_keep"))
                 (begin
@@ -166,6 +171,7 @@
                   (newline)
                   (display "PROPOSE tag=propose_drop")
                   (newline)
+                  (mk:journal! "drop" base trial)
                   (list #f "propose_drop"))))))))
 
 (define (mk:propose-body! body)
