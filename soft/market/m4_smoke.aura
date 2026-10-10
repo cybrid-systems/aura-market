@@ -96,3 +96,23 @@
     (display "M4_4_OK\n")
     (display "M4_4_FAIL\n"))
 
+;; M4-5. Panel minimum KEEP, and a six-pack that only wins one seed DROP.
+(expect "SEED6" (mk:score-pack (list 2 2 2 0 0 0)) 50)
+(define seed6
+  (mk:propose-file!
+   "/workspace/aura-market/soft/market/fixtures/six_seed.lambda"))
+(if (not (tag? seed6 "propose_drop"))
+    (begin (display "SEED6_DROP_FAIL\n") (set! *fail* (+ *fail* 1))))
+(expect "SEED6_TRIAL" *trial-last* -4)
+(define keep6
+  (mk:propose-file!
+   "/workspace/aura-market/soft/market/fixtures/six_keep.lambda"))
+(if (not (tag? keep6 "propose_keep"))
+    (begin (display "KEEP6_FAIL\n") (set! *fail* (+ *fail* 1))))
+(expect "KEEP6_TRIAL" *trial-last* 36)
+(if (not (equal? (mk:law) (list 3 3 0 0 0 0)))
+    (begin (display "KEEP6_LAW_FAIL\n") (set! *fail* (+ *fail* 1))))
+
+(if (= *fail* 0)
+    (display "M4_5_OK\n")
+    (display "M4_5_FAIL\n"))

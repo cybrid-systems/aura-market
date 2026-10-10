@@ -22,6 +22,10 @@
       (display (mk:nstr base))
       (display " trial=")
       (display (mk:nstr trial))
+      (display " min=")
+      (display (mk:nstr base))
+      (display "/")
+      (display (mk:nstr trial))
       (newline)
       (if (> trial base)
           (begin
