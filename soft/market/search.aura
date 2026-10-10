@@ -87,6 +87,8 @@
             (mk:map-packs (cdr inds)))))
 
 (define (mk:search-init!)
+  (set! *search-parallel* #f)
+  (set! *panel-mode* "seq")
   (swarm:init (hash "kind" "grid"
                     "dim" 3
                     "pop" 16
