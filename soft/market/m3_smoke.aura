@@ -163,3 +163,7 @@
 (if (= *fail* 0)
     (display "M3_5_OK\n")
     (display "M3_5_FAIL\n"))
+
+(if (= *fail* 0)
+    (display "MARKET_M3_OK\n")
+    (display "MARKET_M3_FAIL\n"))

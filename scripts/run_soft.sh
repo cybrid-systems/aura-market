@@ -13,8 +13,20 @@ if docker info >/dev/null 2>&1; then
 elif sudo docker info >/dev/null 2>&1; then
   DOCKER=(sudo docker)
 else
-  echo "run_soft: docker not available" >&2
-  exit 1
+  DOCKER=()
+fi
+
+if [[ ${#DOCKER[@]} -eq 0 ]]; then
+  AURA_HOST="${AURA_BIN:-/workspace/aura-grok/build/aura}"
+  if [[ ! -x "$AURA_HOST" ]]; then
+    echo "run_soft: docker not available and ${AURA_HOST} is not executable" >&2
+    exit 1
+  fi
+  export AURA_PATH="${AURA_PATH:-/workspace/aura-grok/lib}"
+  export AURA_PIPELINE_STRICT="${AURA_PIPELINE_STRICT:-0}"
+  export AURA_SANDBOX="${AURA_SANDBOX:-off}"
+  export AURA_BIN="$AURA_HOST"
+  exec "$AURA_HOST" "$SRC" "$@"
 fi
 
 exec "${DOCKER[@]}" run --rm -i --entrypoint /usr/local/bin/gosu \

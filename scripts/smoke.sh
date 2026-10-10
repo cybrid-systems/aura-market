@@ -5,9 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 mkdir -p "$ROOT/out"
 
-bash "$ROOT/scripts/smoke_soft.sh"
-bash "$ROOT/scripts/smoke_m1.sh"
-bash "$ROOT/scripts/smoke_m2.sh"
+bash "$ROOT/scripts/smoke_m3.sh"
 
 keyfile="/home/box/.config/aura-build/minimax_api_key"
 if [[ ! -s "$keyfile" ]]; then

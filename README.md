@@ -42,6 +42,7 @@ Needs `AURA_SANDBOX=off`. `python3` is the host interpreter for
 bash scripts/smoke_soft.sh    # M0 → MARKET_M0_OK
 bash scripts/smoke_m1.sh      # SWAP / HEAL / MUTATE / KEEP / DROP → MARKET_M1_OK
 bash scripts/smoke_m2.sh      # fixture propose → MARKET_M2_PROPOSE_OK
+bash scripts/smoke_m3.sh      # panel minimum, re-checks M0–M2 → MARKET_M3_OK
 bash scripts/smoke.sh         # the stack, plus live MiniMax or LIVE_SKIP + burn
 bash scripts/burn.sh          # 3 rounds, horizon 24; fixtures if MARKET_PROPOSE=0
 ```
