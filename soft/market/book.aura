@@ -241,6 +241,22 @@
   (let ((s (mk:sim qf mid "race" 0)))
     (- (mk:r-score s) (mk:r-adv s))))
 
+;; Parts are a record. The printed score is still the single m0 integer.
+(define (mk:race-parts! qf mid tag)
+  (let ((s (mk:sim qf mid tag 0)))
+    (display "RACE tag=")
+    (display tag)
+    (display " score=")
+    (display (mk:nstr (mk:r-score s)))
+    (display " pnl=")
+    (display (mk:nstr (mk:r-pnl s)))
+    (display " pen_inv=")
+    (display (mk:nstr (mk:r-pen s)))
+    (display " pen_adv=")
+    (display (mk:nstr (mk:r-adv s)))
+    (newline)
+    s))
+
 ;; Same score as mk:score when seed0 / ntick match *seed* / *ticks*.
 ;; Does not set! the main book.
 (define (mk:score-seed qf mid seed0 ntick)
