@@ -51,6 +51,7 @@ bash scripts/smoke_m7.sh      # regime worldlines, re-checks M0–M6 → MARKET_
 bash scripts/smoke_m5.sh      # grid search, no MiniMax → MARKET_M5_OK
 bash scripts/smoke_m8.sh      # rolling window, fixture packs → MARKET_M8_OK
 bash scripts/smoke_ref.sh     # fee, halt, invariants, journal → MARKET_REF_OK
+bash scripts/smoke_value.sh   # regime shift, heal cost → MARKET_VALUE_OK
 bash scripts/smoke.sh         # the stack, plus live MiniMax or LIVE_SKIP + burn
 bash scripts/burn.sh          # 3 rounds, horizon 24; fixtures if MARKET_PROPOSE=0
 ```
@@ -105,6 +106,7 @@ Detail in `docs/m1.md` and `docs/m2.md`.
 | `soft/market/m2_propose_smoke.aura` | `MARKET_M2_PROPOSE_OK` |
 | `soft/market/burn.aura` | multi-round propose burn |
 | `soft/market/ref.aura` | live fee, halt, invariant, decision journal |
+| `soft/market/value_smoke.aura` | regime-shift heal cost on one live book |
 | `scripts/run_soft.sh` | docker tip binary |
 | `scripts/smoke_soft.sh` | M0 evidence |
 | `scripts/smoke_m1.sh` | M1 evidence |
@@ -156,6 +158,7 @@ bash scripts/smoke_soft.sh     # MARKET_M0_OK
 bash scripts/smoke_m1.sh       # MARKET_M1_OK
 bash scripts/smoke_m2.sh       # MARKET_M2_PROPOSE_OK
 bash scripts/smoke_ref.sh      # MARKET_REF_OK
+bash scripts/smoke_value.sh    # MARKET_VALUE_OK
 bash scripts/smoke.sh          # MARKET_SMOKE_OK
 bash scripts/burn.sh           # MARKET_BURN_OK（MARKET_PROPOSE=0 用 fixture）
 ```

@@ -29,8 +29,40 @@ charge fees and does not halt. `mk:score` of wide on seed `20261005` stays
 
 `bash scripts/smoke_ref.sh` prints `MARKET_REF_OK`.
 
+## What a bad trial costs
+
+`*live-regime*` defaults to `calm`. `mk:reset!` puts it back. The live tick
+reads it through `mk:flow`. The M0 sim does not. A halted tick still steps
+the raw drift, so a halt does not follow a non-calm regime.
+
+`bash scripts/smoke_value.sh` keeps one book open. Ticks 1–12 stay calm.
+From tick 13, drift is clamped at 0. Wide, never swapped, scores 18
+(windows -15, 7, 11, 15). The calm windows stay -15, 1, 9, 10.
+
+A spread-9 pack is swapped in at tick 12. Its drift window scores -20,
+against wide's 7, so heal restores `(3 5 0)`. At that tick, inventory is
+still -5, cash is still 514, and fills are still 3: the trial did not
+trade, and heal did not rewind the book. By tick 48 the score is -21,
+which is 39 behind the frozen wide book. That gap is the cost of the
+twelve ticks the dead quote sat through.
+
+`(3 6 0)` ties the drift window and heals. Taker size never exceeds 4, so
+the tape matches frozen wide and the cost is 0. `(2 3 0 0 0 0)` loses the
+window and heals, then finishes 2 ahead of frozen wide, because the
+inventory it left behind is not frozen wide's inventory.
+
+The shipped window rule compares the trial to the previous window, not to
+the incumbent's next window. `(3 3 0 0 0 0)` scores 4 on the drift window.
+That beats the calm window's -15, so the shadow is promoted, even though
+4 is below wide's 7. Left installed from tick 0 with no heal, the same
+pack finishes 5 behind frozen wide.
+
 ## 中文
 
 活簿上的生产参考。费用默认 0。熔断后时钟继续、不再报价、库存和现金冻住。
 每拍核对盈亏、惩罚、现金和 tick。决策记入 `AUDIT`。M0 的 18 和 -5 不变。
 不接经纪商。
+
+行情从第 13 拍改成只向上漂移。价差 9 的试错窗分数 -20，heal 把代码退回
+`(3 5 0)`，库存、现金、成交不退。到第 48 拍比一直挂宽报价差 39。这 39
+是一次错误上线的代价，不是 alpha。
