@@ -96,7 +96,7 @@
                  (mk:pack-winv p) (mk:pack-wdrift p) (mk:pack-wimb p)))
 
 (define (mk:score-pack p)
-  (mk:r-score (mk:sim-go (mk:qf-pack p) 9 "race" 0 *seed* *ticks* 1)))
+  (mk:r-score (mk:sim-go (mk:qf-pack p) 9 "race" 0 *seed* *ticks* 1 "calm")))
 
 (define (mk:stamp-pack! p tag)
   (mk:stamp-go! (mk:qf-pack p) 9 tag 1))

@@ -54,7 +54,7 @@
 (expect-str "GATE_EDGE" (mk:gate (mk:order 0 92 5 9) #f 0 100) "ok")
 
 ;; Tick 14 rejects the ask. The bid still rests.
-(define side (mk:sim-go (mk:qf-pack (list 4 6 1 0 -1 0)) 9 "trial" 0 *seed* 14 1))
+(define side (mk:sim-go (mk:qf-pack (list 4 6 1 0 -1 0)) 9 "trial" 0 *seed* 14 1 "calm"))
 (if (mk:side-of (mk:r-book side) 1)
     (begin (display "ASK_REST_FAIL\n") (set! *fail* (+ *fail* 1)))
     (display "ASK14=out\n"))

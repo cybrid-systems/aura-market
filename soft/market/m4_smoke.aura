@@ -33,7 +33,7 @@
 
 (expect "FEAT_SCORE"
         (mk:r-score
-         (mk:sim-go quote-feat 2 "feat" 0 *seed* *ticks* 1))
+         (mk:sim-go quote-feat 2 "feat" 0 *seed* *ticks* 1 "calm"))
         32)
 
 (if (= *fail* 0)

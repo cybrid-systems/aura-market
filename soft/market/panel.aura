@@ -61,7 +61,7 @@
 (define (mk:score-list-feat qf mid seeds)
   (if (null? seeds)
       (list)
-      (cons (mk:r-score (mk:sim-go qf mid "race" 0 (car seeds) *ticks* 1))
+      (cons (mk:r-score (mk:sim-go qf mid "race" 0 (car seeds) *ticks* 1 "calm"))
             (mk:score-list-feat qf mid (cdr seeds)))))
 
 (define (mk:panel-seq qf mid)

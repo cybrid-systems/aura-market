@@ -13,7 +13,7 @@
 (define (mk:propose-score! clean)
   ;; Trial audit on the M0 tape. print=1 shows the first gate reasons.
   ;; A fat-px reject is not in the book. This does not set! the main book.
-  (mk:sim-go (mk:qf-pack (mk:law)) 9 "trial" 1 *seed* *ticks* 1)
+  (mk:sim-go (mk:qf-pack (mk:law)) 9 "trial" 1 *seed* *ticks* 1 "calm")
   (let ((pair (mk:race-thunks!
                (lambda () (mk:pack-min (mk:shadow)))
                (lambda () (mk:pack-min (mk:law))))))

@@ -49,6 +49,24 @@
 (define (mk:t-aggr r) (modulo (quotient r 8) 4))
 (define (mk:t-drift r) (- (modulo (quotient r 32) 3) 1))
 
+;; One LCG word, three taker mechanisms. The seed step is unchanged.
+;; calm: the M0 flow. drift: drift clamped at 0. aggr: aggression fixed at 3.
+(define (mk:flow r regime)
+  (let ((drift (mk:t-drift r))
+        (aggr (mk:t-aggr r)))
+    (cond
+      ((string=? regime "drift")
+       (list (mk:t-side r) (mk:t-qty r) aggr (if (< drift 0) 0 drift)))
+      ((string=? regime "aggr")
+       (list (mk:t-side r) (mk:t-qty r) 3 drift))
+      (#t
+       (list (mk:t-side r) (mk:t-qty r) aggr drift)))))
+
+(define (mk:flow-side f) (car f))
+(define (mk:flow-qty f) (car (cdr f)))
+(define (mk:flow-aggr f) (car (cdr (cdr f))))
+(define (mk:flow-drift f) (car (cdr (cdr (cdr f)))))
+
 (define (mk:order side px qty mid) (list side px qty mid))
 (define (mk:o-side o) (car o))
 (define (mk:o-px o) (car (cdr o)))
@@ -129,11 +147,13 @@
   (mk:sim-at qf mid tag print *seed* *ticks*))
 
 (define (mk:sim-at qf mid tag print seed0 ntick)
-  (mk:sim-go qf mid tag print seed0 ntick 0))
+  (mk:sim-go qf mid tag print seed0 ntick 0 "calm"))
 
 ;; feat=1 calls (qf fair inv drift imb). feat=0 keeps the M0 two-argument
 ;; quote. imb is the sum of the previous four inventory changes.
-(define (mk:sim-go qf mid tag print seed0 ntick feat)
+;; regime defaults to calm at every existing caller. drift and aggression
+;; come from mk:flow. The LCG step does not change.
+(define (mk:sim-go qf mid tag print seed0 ntick feat regime)
   (let loop ((i 0)
              (r (mk:seed-step seed0))
              (fair *fair0*)
@@ -153,7 +173,8 @@
         (let* ((pnl (+ cash (* inv fair)))
                (pen (+ (quotient invsum 4) (* 2 (mk:abs inv)))))
           (list (- pnl pen) pnl pen inv cash fair fills rejects book adv))
-        (let* ((drift (mk:t-drift r))
+        (let* ((flow (mk:flow r regime))
+               (drift (mk:flow-drift flow))
                ;; Tick after a fill: drift still hurts the inventory that fill left.
                (adv1 (if (and (= pf 1)
                               (or (and (> inv 0) (< drift 0))
@@ -179,9 +200,9 @@
                 (if (not (string=? ga "ok")) (mk:reject! (+ i 1) ask ga tag))))
           (let* ((bk (append (if (string=? gb "ok") (list bid) (list))
                              (if (string=? ga "ok") (list ask) (list))))
-                 (side (mk:t-side r))
-                 (tq (mk:t-qty r))
-                 (aggr (mk:t-aggr r))
+                 (side (mk:flow-side flow))
+                 (tq (mk:flow-qty flow))
+                 (aggr (mk:flow-aggr flow))
                  (hit (if (= side 0) (mk:side-of bk 1) (mk:side-of bk 0)))
                  (crosses (and hit
                                (if (= side 0)
@@ -274,7 +295,7 @@
   (mk:stamp-go! qf mid tag 0))
 
 (define (mk:stamp-go! qf mid tag feat)
-  (let ((s (mk:sim-go qf mid tag 2 *seed* *ticks* feat)))
+  (let ((s (mk:sim-go qf mid tag 2 *seed* *ticks* feat "calm")))
     (set! *slot-tag* tag)
     (set! *book* (mk:r-book s))
     (set! *fair* (mk:r-fair s))

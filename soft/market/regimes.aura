@@ -1,0 +1,5 @@
+;; Three taker mechanisms on the same LCG. Scoring does not write the book.
+(load "/workspace/aura-market/soft/market/book.aura")
+
+(define (mk:score-regime qf mid regime)
+  (mk:r-score (mk:sim-go qf mid "race" 0 *seed* *ticks* 0 regime)))
