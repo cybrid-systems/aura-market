@@ -1,0 +1,77 @@
+;; M6 score parts and fat-px. Ends with MARKET_M6_OK.
+(load "/workspace/aura-market/soft/market/book.aura")
+(load "/workspace/aura-market/soft/market/book_m12.aura")
+(load "/workspace/aura-market/soft/market/features.aura")
+(load "/workspace/aura-market/soft/market/rules.aura")
+(load "/workspace/aura-market/soft/market/panel.aura")
+(load "/workspace/aura-market/soft/market/propose.aura")
+
+(define *fail* 0)
+
+(define (expect tag got want)
+  (display tag)
+  (display "=")
+  (display (mk:nstr got))
+  (if (= got want)
+      (display " OK")
+      (begin
+        (display " WANT=")
+        (display (mk:nstr want))
+        (set! *fail* (+ *fail* 1))))
+  (newline)
+  got)
+
+(define (expect-str tag got want)
+  (display tag)
+  (display "=")
+  (display got)
+  (if (string=? got want)
+      (display " OK")
+      (begin
+        (display " WANT=")
+        (display want)
+        (set! *fail* (+ *fail* 1))))
+  (newline)
+  got)
+
+(define (tag? r want)
+  (and (pair? r) (pair? (cdr r)) (equal? (car (cdr r)) want)))
+
+;; M0 formula is unchanged. score-q is opt-in.
+(expect "SCORE_TIGHT" (mk:score quote-tight 1) -5)
+(expect "SCORE_WIDE" (mk:score quote-wide 2) 18)
+(expect "SCORE_M0" (mk:score-m0 quote-wide 2) 18)
+(expect "SCORE_Q" (mk:score-q quote-wide 2) 15)
+
+(define wide (mk:race-parts! quote-wide 2 "mm-wide"))
+(expect "PNL" (mk:r-pnl wide) 89)
+(expect "PEN_INV" (mk:r-pen wide) 71)
+(expect "PEN_ADV" (mk:r-adv wide) 3)
+
+(expect "WIDE_MIN" (car (mk:panel-report! quote-wide 2 "mm-wide")) 18)
+
+(expect-str "GATE_FAT" (mk:gate (mk:order 0 90 5 9) #f 0 100) "fat-px")
+(expect-str "GATE_EDGE" (mk:gate (mk:order 0 92 5 9) #f 0 100) "ok")
+
+;; Tick 14 rejects the ask. The bid still rests.
+(define side (mk:sim-go (mk:qf-pack (list 4 6 1 0 -1 0)) 9 "trial" 0 *seed* 14 1))
+(if (mk:side-of (mk:r-book side) 1)
+    (begin (display "ASK_REST_FAIL\n") (set! *fail* (+ *fail* 1)))
+    (display "ASK14=out\n"))
+(if (mk:side-of (mk:r-book side) 0)
+    (display "BID14=rest\n")
+    (begin (display "BID_MISS_FAIL\n") (set! *fail* (+ *fail* 1))))
+
+(mk:strategy-seed!)
+(define fat (mk:propose-file!
+             "/workspace/aura-market/soft/market/fixtures/fat_side.lambda"))
+(if (not (tag? fat "propose_drop"))
+    (begin (display "FAT_DROP_FAIL\n") (set! *fail* (+ *fail* 1))))
+(expect "FAT_BASE" *base-last* 18)
+(expect "FAT_TRIAL" *trial-last* 0)
+(if (not (equal? (mk:law) (list 3 5 0)))
+    (begin (display "FAT_HEAL_FAIL\n") (set! *fail* (+ *fail* 1))))
+
+(if (= *fail* 0)
+    (display "MARKET_M6_OK\n")
+    (display "MARKET_M6_FAIL\n"))
