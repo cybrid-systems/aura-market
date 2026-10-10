@@ -1,0 +1,8 @@
+;; Fixed seed panel for the quant loop. First seed is the M0 tape.
+;; Scores are pure mk:score-seed calls. This file does not set! the book.
+
+(define *panel-seeds* (list 20261005 1265 9 19))
+
+(define (mk:panel-seeds) *panel-seeds*)
+
+(define (mk:panel-len) (length *panel-seeds*))
