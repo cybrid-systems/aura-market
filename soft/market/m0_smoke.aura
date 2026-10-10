@@ -40,10 +40,18 @@
 (expect "RNG" (mk:seed-step *seed*) 34567)
 
 ;; Gate self-check on hand-built orders (not strategy output).
-(expect-str "GATE_NEG" (mk:gate (mk:order 0 99 -1 9) #f 0) "negative-qty")
-(expect-str "GATE_CROSS" (mk:gate (mk:order 0 101 2 9) (mk:order 1 100 2 9) 0) "crossed-self-trade")
-(expect-str "GATE_INV" (mk:gate (mk:order 0 99 5 9) #f 8) "over-inventory-limit")
-(expect-str "GATE_OK" (mk:gate (mk:order 1 101 2 9) (mk:order 0 99 2 9) 0) "ok")
+;; fair is 100. fat-px is after the older reasons. Distance 8 stays ok.
+(expect-str "GATE_NEG" (mk:gate (mk:order 0 99 -1 9) #f 0 100) "negative-qty")
+(expect-str "GATE_CROSS" (mk:gate (mk:order 0 101 2 9) (mk:order 1 100 2 9) 0 100) "crossed-self-trade")
+(expect-str "GATE_INV" (mk:gate (mk:order 0 99 5 9) #f 8 100) "over-inventory-limit")
+(expect-str "GATE_OK" (mk:gate (mk:order 1 101 2 9) (mk:order 0 99 2 9) 0 100) "ok")
+(expect-str "GATE_FAT" (mk:gate (mk:order 0 90 5 9) #f 0 100) "fat-px")
+(expect-str "GATE_EDGE" (mk:gate (mk:order 0 92 5 9) #f 0 100) "ok")
+(expect-str "GATE_NEG_FAT" (mk:gate (mk:order 0 90 -1 9) #f 0 100) "negative-qty")
+
+(define (quote-fat fair inv)
+  (list (- fair 9) 5 (+ fair 9) 5))
+(mk:audit-run quote-fat 9 "fat-px")
 
 (mk:race!)
 (mk:audit!)

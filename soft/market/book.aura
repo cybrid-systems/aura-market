@@ -57,7 +57,9 @@
 
 ;; Soft gate. Returns "ok" or a reason string.
 ;; other is the same MM's opposite quote this tick (or #f).
-(define (mk:gate o other inv)
+;; fair is this tick's fair. fat-px is last: older reasons win.
+;; Distance 8 is still ok. A rejected order never rests.
+(define (mk:gate o other inv fair)
   (cond
     ((< (mk:o-qty o) 0) "negative-qty")
     ((= (mk:o-qty o) 0) "zero-qty")
@@ -73,6 +75,7 @@
     ((and (= (mk:o-side o) 1)
           (< (- inv (mk:o-qty o)) (- 0 *inv-limit*)))
      "over-inventory-limit")
+    ((> (mk:abs (- (mk:o-px o) fair)) 8) "fat-px")
     (#t "ok")))
 
 (define (mk:reject! tick o reason tag)
@@ -164,8 +167,8 @@
                       (qf fair1 inv)))
                (bid (mk:order 0 (car q) (car (cdr q)) mid))
                (ask (mk:order 1 (car (cdr (cdr q))) (car (cdr (cdr (cdr q)))) mid))
-               (gb (mk:gate bid ask inv))
-               (ga (mk:gate ask bid inv))
+               (gb (mk:gate bid ask inv fair1))
+               (ga (mk:gate ask bid inv fair1))
                (nrej (+ (if (string=? gb "ok") 0 1)
                         (if (string=? ga "ok") 0 1))))
           ;; Audit prints the first few rejections in full; the total is
