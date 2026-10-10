@@ -6,3 +6,16 @@
 (define (mk:panel-seeds) *panel-seeds*)
 
 (define (mk:panel-len) (length *panel-seeds*))
+
+(define (mk:seed-thunk qf mid seed0)
+  (lambda () (mk:score-seed qf mid seed0 *ticks*)))
+
+(define (mk:seed-thunks qf mid seeds)
+  (if (null? seeds)
+      (list)
+      (cons (mk:seed-thunk qf mid (car seeds))
+            (mk:seed-thunks qf mid (cdr seeds)))))
+
+;; One fiber per seed for a single law. No nested spawn.
+(define (mk:panel-fiber! qf mid)
+  (mk:race-many! (mk:seed-thunks qf mid *panel-seeds*)))

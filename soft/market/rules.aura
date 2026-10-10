@@ -39,27 +39,63 @@
 (define (mm-tight) (mk:score quote-tight 1))
 (define (mm-wide) (mk:score quote-wide 2))
 
+(define (mk:id-member? x xs)
+  (cond
+    ((null? xs) #f)
+    ((= x (car xs)) #t)
+    (#t (mk:id-member? x (cdr xs)))))
+
+(define (mk:ids-distinct? ids)
+  (cond
+    ((null? ids) #t)
+    ((null? (cdr ids)) #t)
+    ((mk:id-member? (car ids) (cdr ids)) #f)
+    (#t (mk:ids-distinct? (cdr ids)))))
+
+(define (mk:spawn-all thunks)
+  (if (null? thunks)
+      (list)
+      (let ((f (try (fiber:spawn (car thunks)) (catch (e) #f))))
+        (if (not (and (number? f) (> f 0)))
+            #f
+            (let ((rest (mk:spawn-all (cdr thunks))))
+              (if rest (cons f rest) #f))))))
+
+(define (mk:join-all ids)
+  (if (null? ids)
+      (list)
+      (let ((r (try (fiber:join (car ids)) (catch (e) #f))))
+        (if (not (number? r))
+            #f
+            (let ((rest (mk:join-all (cdr ids))))
+              (if rest (cons r rest) #f))))))
+
+(define (mk:run-thunks thunks)
+  (if (null? thunks)
+      (list)
+      (cons ((car thunks)) (mk:run-thunks (cdr thunks)))))
+
+;; N thunks, one layer. joined increases only when every id is distinct
+;; and every join returns a number. Otherwise the thunks run on the host
+;; and the world line stays host-sequential.
+(define (mk:race-many! thunks)
+  (let ((n (length thunks)))
+    (set! *race-spawned* (+ *race-spawned* n))
+    (let ((b (try (fiber:spawn-backend) (catch (e) 0))))
+      (if (and (number? b) (> b 0))
+          (set! *race-backend* b))
+      (let ((ids (mk:spawn-all thunks)))
+        (if (and ids (mk:ids-distinct? ids))
+            (let ((joined (mk:join-all ids)))
+              (if joined
+                  (begin
+                    (set! *race-joined* (+ *race-joined* n))
+                    joined)
+                  (mk:run-thunks thunks)))
+            (mk:run-thunks thunks))))))
+
 (define (mk:race-thunks! thunk-a thunk-b)
-  (set! *race-spawned* (+ *race-spawned* 2))
-  (let ((b (try (fiber:spawn-backend) (catch (e) 0))))
-    (if (and (number? b) (> b 0))
-        (set! *race-backend* b))
-    (let* ((f1 (try (fiber:spawn thunk-a) (catch (e) #f)))
-           (f2 (try (fiber:spawn thunk-b) (catch (e) #f)))
-           (r1 (if (and (number? f1) (> f1 0))
-                   (try (fiber:join f1) (catch (e) #f))
-                   #f))
-           (r2 (if (and (number? f2) (> f2 0))
-                   (try (fiber:join f2) (catch (e) #f))
-                   #f)))
-      (if (and (number? f1) (number? f2)
-               (> f1 0) (> f2 0)
-               (not (= f1 f2))
-               (number? r1) (number? r2))
-          (begin
-            (set! *race-joined* (+ *race-joined* 2))
-            (list r1 r2))
-          (list (thunk-a) (thunk-b))))))
+  (mk:race-many! (list thunk-a thunk-b)))
 
 (define (mk:finish-world!)
   (if (and (> *race-spawned* 0)
