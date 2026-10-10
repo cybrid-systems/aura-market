@@ -117,8 +117,44 @@
 (define *last-px* 0)
 (define *last-side* 0)
 
-;; ref.aura overrides these. Unloaded, they print nothing and halt nothing.
-(define (mk:journal! action base trial) 0)
+;; Attempts live here, not in the AST mutation log. hot-strategy:heal!
+;; restores the pre-swap snapshot, and that snapshot's log does not
+;; contain the rebind. This list is workspace data, so it stays.
+(define *ledger* (list))
+
+(define (mk:ledger) *ledger*)
+
+(define (mk:ledger-clear!)
+  (set! *ledger* (list))
+  0)
+
+(define (mk:ledger-pack)
+  (let ((p (try (mk:law) (catch (e) #f))))
+    (if (and (pair? p) (mk:pack-ok? p))
+        (list (mk:pack-hs p) (mk:pack-sz p) (mk:pack-ib p))
+        (list))))
+
+(define (mk:ledger-muts action)
+  (if (string=? action "heal")
+      (let ((xs (try (query:mutations-since 0) (catch (e) (list)))))
+        (if (pair? xs) xs (list)))
+      (list)))
+
+;; Record the decision before heal! runs. For a heal, the pack is the
+;; trial still installed, and muts still contain its rebind line.
+(define (mk:ledger-note! action base trial)
+  (set! *ledger*
+        (append *ledger*
+                (list (list action *tick* base trial
+                            (mk:ledger-pack)
+                            (mk:ledger-muts action)))))
+  (length *ledger*))
+
+;; ref.aura overrides mk:journal! and must call mk:ledger-note! itself.
+;; Unloaded, this records and prints nothing.
+(define (mk:journal! action base trial)
+  (mk:ledger-note! action base trial)
+  0)
 (define (mk:ref-check!) 0)
 
 (define (mk:arm-floor! n)

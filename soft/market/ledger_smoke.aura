@@ -1,0 +1,100 @@
+;; Heal restores the pre-swap AST, including its mutation log.
+;; The ledger copy of that rebind is still there afterwards.
+(load "/workspace/aura-market/soft/market/ref.aura")
+
+(define *fail* 0)
+
+(define (expect tag got want)
+  (display tag)
+  (display "=")
+  (display (if (number? got) (mk:nstr got) got))
+  (if (equal? got want)
+      (display " OK")
+      (begin
+        (display " WANT=")
+        (display (if (number? want) (mk:nstr want) want))
+        (set! *fail* (+ *fail* 1))))
+  (newline)
+  got)
+
+(define (entry-action e) (car e))
+(define (entry-tick e) (car (cdr e)))
+(define (entry-pack e) (car (cdr (cdr (cdr (cdr e))))))
+(define (entry-muts e) (car (cdr (cdr (cdr (cdr (cdr e)))))))
+
+(define (nth xs i)
+  (if (= i 0)
+      (car xs)
+      (nth (cdr xs) (- i 1))))
+
+(define (has-window? xs)
+  (if (pair? xs)
+      (if (string-contains? (car xs) "sum=window")
+          #t
+          (has-window? (cdr xs)))
+      #f))
+
+(define (show-pack p)
+  (if (and (pair? p) (= (length p) 3))
+      (begin
+        (display (mk:nstr (car p)))
+        (display ",")
+        (display (mk:nstr (car (cdr p))))
+        (display ",")
+        (display (mk:nstr (car (cdr (cdr p))))))
+      (display "none")))
+
+(define (run n)
+  (let loop ((i 0))
+    (if (< i n)
+        (begin
+          (mk:live-tick! "mk:law")
+          (loop (+ i 1))))))
+
+(define (engine-muts)
+  (let ((xs (try (query:mutations-since 0) (catch (e) (list)))))
+    (if (pair? xs) (length xs) 0)))
+
+(mk:strategy-seed!)
+(expect "M0_TIGHT" (mk:score quote-tight 1) -5)
+(expect "M0_WIDE" (mk:score quote-wide 2) 18)
+
+(mk:ref-reset!)
+(mk:ledger-clear!)
+(mk:apply-law-params!)
+(mk:window-base! 0)
+(mk:window-arm! "(lambda () (list 9 5 0))")
+(run 36)
+
+(define swap-e (nth (mk:ledger) 0))
+(define heal-e (nth (mk:ledger) 1))
+
+(expect "LEDGER_N" (length (mk:ledger)) 2)
+(expect "LEDGER_SWAP" (entry-action swap-e) "swap")
+(expect "LEDGER_SWAP_TICK" (entry-tick swap-e) 24)
+(expect "LEDGER_HEAL" (entry-action heal-e) "heal")
+(expect "LEDGER_HEAL_TICK" (entry-tick heal-e) 36)
+(display "LEDGER_HEAL_PACK=")
+(show-pack (entry-pack heal-e))
+(if (and (pair? (entry-pack heal-e))
+         (= (car (entry-pack heal-e)) 9)
+         (= (car (cdr (entry-pack heal-e))) 5)
+         (= (car (cdr (cdr (entry-pack heal-e)))) 0))
+    (display " OK\n")
+    (begin
+      (display " WANT=9,5,0\n")
+      (set! *fail* (+ *fail* 1))))
+(if (has-window? (entry-muts heal-e))
+    (display "LEDGER_HEAL_MUT=window OK\n")
+    (begin
+      (display "LEDGER_HEAL_MUT WANT=window\n")
+      (set! *fail* (+ *fail* 1))))
+(expect "LAW_NOW_HS" (mk:pack-hs (mk:law)) 3)
+(expect "LAW_NOW_SZ" (mk:pack-sz (mk:law)) 5)
+(expect "ENGINE_MUTS" (engine-muts) 0)
+(expect "LEDGER_TICK" *tick* 36)
+(expect "LEDGER_FAILS" *ref-fails* 0)
+
+(if (= *fail* 0)
+    (display "MARKET_LEDGER_OK\n")
+    (display "MARKET_LEDGER_FAIL\n"))

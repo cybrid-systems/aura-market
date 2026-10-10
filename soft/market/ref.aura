@@ -7,6 +7,7 @@
 (define *ref-prev-tick* -1)
 
 (define (mk:journal! action base trial)
+  (mk:ledger-note! action base trial)
   (display "AUDIT tick=")
   (display (number->string *tick*))
   (display " action=")

@@ -24,6 +24,11 @@ charge fees and does not halt. `mk:score` of wide on seed `20261005` stays
   window `swap`, `keep`, and `heal`, for propose `keep` and `drop`, and
   for `halt` and `resume`. Without `ref.aura` the same `mk:journal!` calls
   are silent. This is not `mk:audit!`, which is the M0 tape stamp.
+- **Ledger.** `mk:ledger` keeps those decisions in workspace data. A heal
+  entry copies `query:mutations-since` first, including the `sum=window`
+  rebind. `hot-strategy:heal!` then restores the pre-swap snapshot, and
+  the engine mutation log in that snapshot does not contain the rebind.
+  The ledger still names the trial pack. `mk:reset!` does not clear it.
 - **Hot slot.** A worse next window still `hot-strategy:heal!`s the
   pre-swap snapshot. `*tick*` does not go backwards.
 
@@ -66,3 +71,7 @@ pack finishes 5 behind frozen wide.
 行情从第 13 拍改成只向上漂移。价差 9 的试错窗分数 -20，heal 把代码退回
 `(3 5 0)`，库存、现金、成交不退。到第 48 拍比一直挂宽报价差 39。这 39
 是一次错误上线的代价，不是 alpha。
+
+`heal!` 会把 AST 里的变异日志一起退回。`mk:ledger` 在退回之前抄下
+`rebind` 和当时的参数包。代码回到 `(3 5 0)` 之后，账上仍记着试过
+`(9 5 0)`。
