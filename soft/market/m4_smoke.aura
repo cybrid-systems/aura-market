@@ -75,3 +75,24 @@
 (if (= *fail* 0)
     (display "M4_3_OK\n")
     (display "M4_3_FAIL\n"))
+
+;; M4-4. A six-list passes the gate. set! is still rejected.
+(define six-drop
+  (mk:propose-file!
+   "/workspace/aura-market/soft/market/fixtures/six_drop.lambda"))
+(if (not (tag? six-drop "propose_drop"))
+    (begin (display "SIX_DROP_FAIL\n") (set! *fail* (+ *fail* 1))))
+(define bad (mk:propose-file!
+             "/workspace/aura-market/soft/market/fixtures/bad.lambda"))
+(if (not (tag? bad "propose_reject"))
+    (begin (display "BAD_FAIL\n") (set! *fail* (+ *fail* 1))))
+(define four (mk:propose-body! "(lambda () (list 3 5 0 1))"))
+(if (not (tag? four "propose_heal"))
+    (begin (display "FOUR_FAIL\n") (set! *fail* (+ *fail* 1))))
+(if (not (equal? (mk:law) (list 3 5 0)))
+    (begin (display "LAW_FAIL\n") (set! *fail* (+ *fail* 1))))
+
+(if (= *fail* 0)
+    (display "M4_4_OK\n")
+    (display "M4_4_FAIL\n"))
+
