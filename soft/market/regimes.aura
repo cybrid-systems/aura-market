@@ -1,5 +1,70 @@
 ;; Three taker mechanisms on the same LCG. Scoring does not write the book.
+;; One fiber layer: three regimes times shadow and law. No nested spawn.
 (load "/workspace/aura-market/soft/market/book.aura")
+(load "/workspace/aura-market/soft/market/book_m12.aura")
+(load "/workspace/aura-market/soft/market/rules.aura")
 
 (define (mk:score-regime qf mid regime)
   (mk:r-score (mk:sim-go qf mid "race" 0 *seed* *ticks* 0 regime)))
+
+(define (mk:score-pack-regime p regime)
+  (mk:r-score (mk:sim-go (mk:qf-pack p) 9 "race" 0 *seed* *ticks* 1 regime)))
+
+(define (mk:regime-at xs i)
+  (if (= i 0)
+      (car xs)
+      (mk:regime-at (cdr xs) (- i 1))))
+
+(define (mk:regime-begin!)
+  (set! *race-backend* 0)
+  (set! *race-spawned* 0)
+  (set! *race-joined* 0)
+  (set! *world-line* "host-sequential")
+  0)
+
+;; xs is (calm-base drift-base aggr-base calm-trial drift-trial aggr-trial).
+(define (mk:regime-print! xs)
+  (display "REGIME calm=")
+  (display (mk:nstr (mk:regime-at xs 0)))
+  (display "/")
+  (display (mk:nstr (mk:regime-at xs 3)))
+  (display " drift=")
+  (display (mk:nstr (mk:regime-at xs 1)))
+  (display "/")
+  (display (mk:nstr (mk:regime-at xs 4)))
+  (display " aggr=")
+  (display (mk:nstr (mk:regime-at xs 2)))
+  (display "/")
+  (display (mk:nstr (mk:regime-at xs 5)))
+  (newline)
+  xs)
+
+(define (mk:regime-thunks base trial)
+  (list (lambda () (mk:score-pack-regime base "calm"))
+        (lambda () (mk:score-pack-regime base "drift"))
+        (lambda () (mk:score-pack-regime base "aggr"))
+        (lambda () (mk:score-pack-regime trial "calm"))
+        (lambda () (mk:score-pack-regime trial "drift"))
+        (lambda () (mk:score-pack-regime trial "aggr"))))
+
+;; Six fibers, one layer. fiber_live only when every join lands.
+(define (mk:regime-race! base trial)
+  (mk:regime-begin!)
+  (let ((xs (mk:race-many! (mk:regime-thunks base trial))))
+    (mk:finish-world!)
+    (mk:stamp-world!)
+    (mk:regime-print! xs)))
+
+;; One thunk returns a non-number, so a join is missing.
+;; The world line must stay host-sequential.
+(define (mk:regime-miss!)
+  (mk:regime-begin!)
+  (mk:race-many!
+   (list (lambda () 1)
+         (lambda () 1)
+         (lambda () 1)
+         (lambda () #f)
+         (lambda () 1)
+         (lambda () 1)))
+  (mk:finish-world!)
+  (mk:stamp-world!))
