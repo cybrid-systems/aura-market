@@ -126,6 +126,11 @@
   (mk:sim-at qf mid tag print *seed* *ticks*))
 
 (define (mk:sim-at qf mid tag print seed0 ntick)
+  (mk:sim-go qf mid tag print seed0 ntick 0))
+
+;; feat=1 calls (qf fair inv drift imb). feat=0 keeps the M0 two-argument
+;; quote. imb is the sum of the previous four inventory changes.
+(define (mk:sim-go qf mid tag print seed0 ntick feat)
   (let loop ((i 0)
              (r (mk:seed-step seed0))
              (fair *fair0*)
@@ -134,13 +139,21 @@
              (invsum 0)
              (fills 0)
              (rejects 0)
-             (book (list)))
+             (book (list))
+             (d0 0)
+             (d1 0)
+             (d2 0)
+             (d3 0))
     (if (>= i ntick)
         (let* ((pnl (+ cash (* inv fair)))
                (pen (+ (quotient invsum 4) (* 2 (mk:abs inv)))))
           (list (- pnl pen) pnl pen inv cash fair fills rejects book))
-        (let* ((fair1 (+ fair (mk:t-drift r)))
-               (q (qf fair1 inv))
+        (let* ((drift (mk:t-drift r))
+               (imb (+ d0 (+ d1 (+ d2 d3))))
+               (fair1 (+ fair drift))
+               (q (if (= feat 1)
+                      (qf fair1 inv drift imb)
+                      (qf fair1 inv)))
                (bid (mk:order 0 (car q) (car (cdr q)) mid))
                (ask (mk:order 1 (car (cdr (cdr q))) (car (cdr (cdr (cdr q)))) mid))
                (gb (mk:gate bid ask inv))
@@ -188,7 +201,11 @@
                   (+ invsum (mk:abs inv1))
                   (+ fills (if crosses 1 0))
                   (+ rejects nrej)
-                  rest))))))
+                  rest
+                  d1
+                  d2
+                  d3
+                  (- inv1 inv)))))))
 
 (define (mk:r-score s) (car s))
 (define (mk:r-pnl s) (car (cdr s)))

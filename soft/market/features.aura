@@ -1,0 +1,10 @@
+;; Causal quote features. The fill for this tick has not happened yet.
+;;   inv   — inventory before the fill
+;;   drift — fair change already applied this tick (-1, 0, or +1)
+;;   imb   — sum of the previous four inventory changes
+;; A feature quoter is (lambda (fair inv drift imb) quotes).
+;; The M0 quoter stays (lambda (fair inv) quotes) and is selected with
+;; feat=0, so it never sees a future fill.
+
+(define (mk:feat-imb d0 d1 d2 d3)
+  (+ d0 (+ d1 (+ d2 d3))))

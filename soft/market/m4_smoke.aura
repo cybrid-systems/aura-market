@@ -1,0 +1,39 @@
+;; M4 feature law. MARKET_M4_OK arrives in M4-6.
+(load "/workspace/aura-market/soft/market/book.aura")
+(load "/workspace/aura-market/soft/market/features.aura")
+(load "/workspace/aura-market/soft/market/rules.aura")
+
+(define *fail* 0)
+
+(define (expect tag got want)
+  (display tag)
+  (display "=")
+  (display (mk:nstr got))
+  (if (= got want)
+      (display " OK")
+      (begin
+        (display " WANT=")
+        (display (mk:nstr want))
+        (set! *fail* (+ *fail* 1))))
+  (newline)
+  got)
+
+;; M4-1. Two-arg path is unchanged. Four-arg path sees drift and imb.
+(expect "SCORE_TIGHT" (mk:score quote-tight 1) -5)
+(expect "SCORE_WIDE" (mk:score quote-wide 2) 18)
+(expect "IMB" (mk:feat-imb 1 -2 3 4) 6)
+
+(define (quote-feat fair inv drift imb)
+  (list (- fair 3)
+        (+ 5 drift)
+        (+ fair 3)
+        (+ 5 imb)))
+
+(expect "FEAT_SCORE"
+        (mk:r-score
+         (mk:sim-go quote-feat 2 "feat" 0 *seed* *ticks* 1))
+        32)
+
+(if (= *fail* 0)
+    (display "M4_1_OK\n")
+    (display "M4_1_FAIL\n"))
