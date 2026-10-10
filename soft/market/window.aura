@@ -1,0 +1,37 @@
+;; Rolling window on the live book. Does not call mk:reset!.
+;; *tick* only moves forward inside mk:tick!.
+(load "/workspace/aura-market/soft/market/book.aura")
+(load "/workspace/aura-market/soft/market/book_m12.aura")
+
+(define *win-w* 12)
+(define *win-deltas* (list))
+(define *win-prev-pnl* 0)
+(define *win-prev-pen* 0)
+(define *win-score* 0)
+
+(define (mk:win-sum xs)
+  (if (null? xs)
+      0
+      (+ (car xs) (mk:win-sum (cdr xs)))))
+
+(define (mk:window-note!)
+  (let ((d (- (- *pnl* *win-prev-pnl*) (- *penalty* *win-prev-pen*))))
+    (set! *win-prev-pnl* *pnl*)
+    (set! *win-prev-pen* *penalty*)
+    (set! *win-deltas* (append *win-deltas* (list d)))
+    (if (>= (length *win-deltas*) *win-w*)
+        (let ((score (mk:win-sum *win-deltas*))
+              (tick *tick*))
+          (set! *win-score* score)
+          (set! *win-deltas* (list))
+          (display "WINDOW tick=")
+          (display (number->string tick))
+          (display " from=")
+          (display (number->string (- tick (- *win-w* 1))))
+          (display " to=")
+          (display (number->string tick))
+          (display " score=")
+          (display (mk:nstr score))
+          (newline)
+          score)
+        0)))

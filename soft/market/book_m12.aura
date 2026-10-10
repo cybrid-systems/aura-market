@@ -125,6 +125,9 @@
   (set! *slot-tag* "live")
   0)
 
+;; M8 overrides this. The no-op keeps M1 from printing window lines.
+(define (mk:window-note!) 0)
+
 ;; One in-play tick on the live book using *hs*/*sz*/*ib* (+ bias-boost).
 ;; Does not retcon prior ticks. MUTATE at tick 8 raises *bias-boost*.
 (define (mk:tick! tag)
@@ -188,4 +191,5 @@
           (display "MUTATE tick=8 bias-boost=1 slot=")
           (display tag)
           (newline)))
+    (mk:window-note!)
     *tick*))
