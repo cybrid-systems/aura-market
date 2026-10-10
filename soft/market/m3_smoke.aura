@@ -1,0 +1,48 @@
+;; M3 score probe. Grows as the milestone lands. MARKET_M3_OK is M3-6.
+(load "/workspace/aura-market/soft/market/book.aura")
+(load "/workspace/aura-market/soft/market/rules.aura")
+
+(define *fail* 0)
+
+(define (expect tag got want)
+  (display tag)
+  (display "=")
+  (display (mk:nstr got))
+  (if (= got want)
+      (display " OK")
+      (begin
+        (display " WANT=")
+        (display (mk:nstr want))
+        (set! *fail* (+ *fail* 1))))
+  (newline)
+  got)
+
+(define (expect-str tag got want)
+  (display tag)
+  (display "=")
+  (display got)
+  (if (string=? got want)
+      (display " OK")
+      (begin
+        (display " WANT=")
+        (display want)
+        (set! *fail* (+ *fail* 1))))
+  (newline)
+  got)
+
+;; M3-1. Default path and per-seed path agree. Main slots stay at boot.
+(expect "SCORE_TIGHT" (mk:score quote-tight 1) -5)
+(expect "SCORE_WIDE" (mk:score quote-wide 2) 18)
+(expect "SEED_TIGHT" (mk:score-seed quote-tight 1 *seed* *ticks*) -5)
+(expect "SEED_WIDE" (mk:score-seed quote-wide 2 *seed* *ticks*) 18)
+(expect "BOOK" (length *book*) 0)
+(expect "FAIR" *fair* 0)
+(expect "INV" *inv* 0)
+(expect "CASH" *cash* 0)
+(expect "TICK" *tick* 0)
+(expect "PNL" *pnl* 0)
+(expect "PENALTY" *penalty* 0)
+
+(if (= *fail* 0)
+    (display "M3_1_OK\n")
+    (display "M3_1_FAIL\n"))

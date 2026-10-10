@@ -120,9 +120,14 @@
 ;; qf is (lambda (fair inv) (list bid-px bid-qty ask-px ask-qty)).
 ;; print=1 prints REJECT (host audit pass). print=2 prints TAPE (stamp replay).
 ;; Returns (score pnl penalty inv cash fair fills rejects book).
+;; mk:sim-at does not read or write the main-book slots. seed0 / ntick
+;; replace *seed* / *ticks* for that call only.
 (define (mk:sim qf mid tag print)
+  (mk:sim-at qf mid tag print *seed* *ticks*))
+
+(define (mk:sim-at qf mid tag print seed0 ntick)
   (let loop ((i 0)
-             (r (mk:seed-step *seed*))
+             (r (mk:seed-step seed0))
              (fair *fair0*)
              (inv 0)
              (cash 0)
@@ -130,7 +135,7 @@
              (fills 0)
              (rejects 0)
              (book (list)))
-    (if (>= i *ticks*)
+    (if (>= i ntick)
         (let* ((pnl (+ cash (* inv fair)))
                (pen (+ (quotient invsum 4) (* 2 (mk:abs inv)))))
           (list (- pnl pen) pnl pen inv cash fair fills rejects book))
@@ -198,6 +203,11 @@
 ;; Score only. No set! of world slots, so a fiber race cannot clobber main.
 (define (mk:score qf mid)
   (mk:r-score (mk:sim qf mid "race" 0)))
+
+;; Same score as mk:score when seed0 / ntick match *seed* / *ticks*.
+;; Does not set! the main book.
+(define (mk:score-seed qf mid seed0 ntick)
+  (mk:r-score (mk:sim-at qf mid "race" 0 seed0 ntick)))
 
 ;; Host audit pass: prints REJECT lines, writes nothing.
 (define (mk:audit-run qf mid tag)
