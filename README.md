@@ -7,7 +7,7 @@ gate before it may rest. A thin C viewport, later, only blits the book.
 There is no C binary in this tree.
 
 Design: [`docs/DESIGN.md`](docs/DESIGN.md).
-Milestones: [`docs/m0.md`](docs/m0.md), [`docs/m1.md`](docs/m1.md), [`docs/m2.md`](docs/m2.md), [`docs/m3.md`](docs/m3.md), [`docs/m4.md`](docs/m4.md), [`docs/m6.md`](docs/m6.md).
+Milestones: [`docs/m0.md`](docs/m0.md), [`docs/m1.md`](docs/m1.md), [`docs/m2.md`](docs/m2.md), [`docs/m3.md`](docs/m3.md), [`docs/m4.md`](docs/m4.md), [`docs/m6.md`](docs/m6.md), [`docs/m7.md`](docs/m7.md).
 Repo: https://github.com/cybrid-systems/aura-market
 
 This is not an exchange and not a trading system. The product is the Aura
@@ -47,6 +47,7 @@ bash scripts/smoke_m2.sh      # fixture propose → MARKET_M2_PROPOSE_OK
 bash scripts/smoke_m3.sh      # panel minimum, re-checks M0–M2 → MARKET_M3_OK
 bash scripts/smoke_m4.sh      # features and six-packs, re-checks M0–M3 → MARKET_M4_OK
 bash scripts/smoke_m6.sh      # score parts and fat-px, re-checks M0–M4 → MARKET_M6_OK
+bash scripts/smoke_m7.sh      # regime worldlines, re-checks M0–M6 → MARKET_M7_OK
 bash scripts/smoke.sh         # the stack, plus live MiniMax or LIVE_SKIP + burn
 bash scripts/burn.sh          # 3 rounds, horizon 24; fixtures if MARKET_PROPOSE=0
 ```

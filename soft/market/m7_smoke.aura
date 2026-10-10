@@ -1,0 +1,54 @@
+;; M7 regime worldlines. Ends with MARKET_M7_OK.
+(load "/workspace/aura-market/soft/market/propose.aura")
+
+(define *fail* 0)
+
+(define (expect tag got want)
+  (display tag)
+  (display "=")
+  (display (mk:nstr got))
+  (if (= got want)
+      (display " OK")
+      (begin
+        (display " WANT=")
+        (display (mk:nstr want))
+        (set! *fail* (+ *fail* 1))))
+  (newline)
+  got)
+
+(define (tag? r want)
+  (and (pair? r) (pair? (cdr r)) (equal? (car (cdr r)) want)))
+
+(expect "STEP" (mk:seed-step 20261005) 34567)
+(expect "CALM_WIDE" (mk:score-regime quote-wide 2 "calm") 18)
+(expect "CALM_TIGHT" (mk:score-regime quote-tight 1 "calm") -5)
+(expect "M0_WIDE" (mk:score quote-wide 2) 18)
+(expect "M0_TIGHT" (mk:score quote-tight 1) -5)
+
+(mk:regime-race! (list 3 5 0) (list 3 5 0))
+(define miss (mk:regime-miss!))
+(if (string=? miss "host-sequential")
+    (display "MISS=host-sequential\n")
+    (begin (display "MISS_FAIL\n") (set! *fail* (+ *fail* 1))))
+
+(mk:strategy-seed!)
+(define drop (mk:propose-regime-body! "(lambda () (list 3 1 0))"))
+(if (not (tag? drop "propose_drop"))
+    (begin (display "CALM_DROP_FAIL\n") (set! *fail* (+ *fail* 1))))
+(expect "DROP_BASE" *base-last* 18)
+(expect "DROP_TRIAL" *trial-last* 8)
+(if (not (equal? (mk:law) (list 3 5 0)))
+    (begin (display "DROP_HEAL_FAIL\n") (set! *fail* (+ *fail* 1))))
+
+(define keep (mk:propose-regime-body! "(lambda () (list 3 6 0))"))
+(if (not (tag? keep "propose_keep"))
+    (begin (display "REGIME_KEEP_FAIL\n") (set! *fail* (+ *fail* 1))))
+(expect "KEEP_BASE" *base-last* 18)
+(expect "KEEP_TRIAL" *trial-last* 28)
+(if (not (equal? (mk:law) (list 3 6 0)))
+    (begin (display "KEEP_LAW_FAIL\n") (set! *fail* (+ *fail* 1)))
+    (display "LAW=(3 6 0)\n"))
+
+(if (= *fail* 0)
+    (display "MARKET_M7_OK\n")
+    (display "MARKET_M7_FAIL\n"))
