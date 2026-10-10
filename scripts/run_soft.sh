@@ -42,5 +42,6 @@ exec "${DOCKER[@]}" run --rm -i --entrypoint /usr/local/bin/gosu \
   -e "MARKET_ROUND_DIR=${MARKET_ROUND_DIR:-}" \
   -e "MARKET_PROPOSE_FILE=${MARKET_PROPOSE_FILE:-}" \
   -e "MARKET_PROPOSE=${MARKET_PROPOSE:-}" \
+  -e "MARKET_SWARM_EVALS=${MARKET_SWARM_EVALS:-}" \
   "${IMG}" \
   dev /usr/bin/stdbuf -oL -eL /workspace/aura-grok/build/aura "$SRC" "$@"

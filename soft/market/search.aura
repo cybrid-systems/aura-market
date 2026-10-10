@@ -46,3 +46,30 @@
 
 (define (mk:search-packs)
   (mk:map-packs (swarm:population)))
+
+(define *search-evals* 0)
+(define *search-budget* 16)
+
+;; Budget lives outside mk:fitness, so the fitness function stays pure.
+(define (mk:search-budget!)
+  (let ((raw (getenv "MARKET_SWARM_EVALS")))
+    (if (and (string? raw) (> (string-length raw) 0))
+        (let ((n (string->number raw)))
+          (if (and (number? n) (> n 0))
+              (set! *search-budget* (quotient (floor n) 1))
+              (set! *search-budget* 16)))
+        (set! *search-budget* 16))
+    *search-budget*))
+
+(define (mk:search-step!)
+  (set! *search-evals* 0)
+  (mk:search-budget!)
+  (mk:search-init!)
+  (swarm:step!
+   (lambda (ind)
+     (if (>= *search-evals* *search-budget*)
+         #f
+         (begin
+           (set! *search-evals* (+ *search-evals* 1))
+           (mk:fitness (mk:pack-from-ind ind))))))
+  (mk:pack-from-ind (swarm:best)))
