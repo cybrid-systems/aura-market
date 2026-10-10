@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Stack: M0 through M7, then the M5 grid, optional live MiniMax
-# (SKIP when no key), fixture burn.
+# Stack: M0 through M7, then the M5 grid, the M8 window, optional live
+# MiniMax (SKIP when no key), fixture burn.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 mkdir -p "$ROOT/out"
 
 bash "$ROOT/scripts/smoke_m7.sh"
 bash "$ROOT/scripts/smoke_m5.sh"
+bash "$ROOT/scripts/smoke_m8.sh"
 
 keyfile="/home/box/.config/aura-build/minimax_api_key"
 if [[ ! -s "$keyfile" ]]; then
