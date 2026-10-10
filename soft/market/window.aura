@@ -2,12 +2,42 @@
 ;; *tick* only moves forward inside mk:tick!.
 (load "/workspace/aura-market/soft/market/book.aura")
 (load "/workspace/aura-market/soft/market/book_m12.aura")
+(load "/workspace/aura-market/soft/market/rules.aura")
+(load "/workspace/aura-market/soft/market/hot.aura")
 
 (define *win-w* 12)
 (define *win-deltas* (list))
 (define *win-prev-pnl* 0)
 (define *win-prev-pen* 0)
 (define *win-score* 0)
+(define *win-base* #f)
+(define *win-next* #f)
+(define *win-phase* "base")
+
+(define (mk:window-base! n)
+  (set! *win-base* n)
+  n)
+
+(define (mk:window-arm! body)
+  (set! *win-next* body)
+  body)
+
+;; Swap only when the past window is strictly above the stored base.
+(define (mk:window-boundary! score tick)
+  (if (and (string=? *win-phase* "base")
+           (string? *win-next*)
+           (number? *win-base*)
+           (> score *win-base*))
+      (let ((body *win-next*))
+        (set! *win-base* score)
+        (set! *win-phase* "trial")
+        (set! *win-next* #f)
+        (mk:apply-body! body "window")
+        score)
+      (begin
+        (if (not (number? *win-base*))
+            (set! *win-base* score))
+        score)))
 
 (define (mk:win-sum xs)
   (if (null? xs)
@@ -33,5 +63,6 @@
           (display " score=")
           (display (mk:nstr score))
           (newline)
+          (mk:window-boundary! score tick)
           score)
         0)))
