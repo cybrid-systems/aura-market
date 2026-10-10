@@ -61,10 +61,30 @@
         (set! *search-budget* 16))
     *search-budget*))
 
-(define (mk:search-step!)
+(define (mk:search-init-bad!)
+  (swarm:init (hash "kind" "grid"
+                    "dim" 3
+                    "pop" 4
+                    "bins" 1
+                    "parallel" #f
+                    "bounds" (list (list 2.0 2.0)
+                                   (list 2.0 2.0)
+                                   (list 3.0 3.0)))))
+
+(define (mk:pack-body p)
+  (string-append "(lambda () (list "
+                 (mk:nstr (car p)) " "
+                 (mk:nstr (car (cdr p))) " "
+                 (mk:nstr (car (cdr (cdr p)))) " "
+                 (mk:nstr (car (cdr (cdr (cdr p))))) " "
+                 (mk:nstr (car (cdr (cdr (cdr (cdr p)))))) " "
+                 (mk:nstr (car (cdr (cdr (cdr (cdr (cdr p)))))))
+                 "))"))
+
+(define (mk:search-run! boot)
   (set! *search-evals* 0)
   (mk:search-budget!)
-  (mk:search-init!)
+  (boot)
   (swarm:step!
    (lambda (ind)
      (if (>= *search-evals* *search-budget*)
@@ -73,3 +93,9 @@
            (set! *search-evals* (+ *search-evals* 1))
            (mk:fitness (mk:pack-from-ind ind))))))
   (mk:pack-from-ind (swarm:best)))
+
+(define (mk:search-step!)
+  (mk:search-run! mk:search-init!))
+
+(define (mk:search-step-bad!)
+  (mk:search-run! mk:search-init-bad!))

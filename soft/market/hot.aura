@@ -81,6 +81,7 @@
 ;; Install a lambda string into mk:law. Does not touch mk:shadow.
 ;; Gate reject leaves the slot alone. A bad probe heal!s the pre-swap snap.
 ;; A regime KEEP leaves this swapped body in place, so (mk:law) is the pack.
+;; heal! restores the pre-swap body and does not change *tick*.
 (define (mk:apply-body! body reason)
   (let ((clean (if (string? body) (string-trim body) "")))
     (cond
