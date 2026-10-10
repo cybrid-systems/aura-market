@@ -69,6 +69,9 @@
     (set! *hs* (mk:pack-hs p))
     (set! *sz* (mk:pack-sz p))
     (set! *ib* (mk:pack-ib p))
+    (set! *wv* (mk:pack-winv p))
+    (set! *wd* (mk:pack-wdrift p))
+    (set! *wi* (mk:pack-wimb p))
     p))
 
 (define (mk:live-tick! tag)

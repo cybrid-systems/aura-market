@@ -1,7 +1,9 @@
 ;; M4 feature law. MARKET_M4_OK arrives in M4-6.
 (load "/workspace/aura-market/soft/market/book.aura")
+(load "/workspace/aura-market/soft/market/book_m12.aura")
 (load "/workspace/aura-market/soft/market/features.aura")
 (load "/workspace/aura-market/soft/market/rules.aura")
+(load "/workspace/aura-market/soft/market/propose.aura")
 
 (define *fail* 0)
 
@@ -37,3 +39,39 @@
 (if (= *fail* 0)
     (display "M4_1_OK\n")
     (display "M4_1_FAIL\n"))
+
+;; M4-2. Three or six integers. A short list still fails the probe.
+(define (tag? r want)
+  (and (pair? r) (pair? (cdr r)) (equal? (car (cdr r)) want)))
+
+(if (not (mk:pack-ok? (list 3 5 0)))
+    (begin (display "PACK3_FAIL\n") (set! *fail* (+ *fail* 1))))
+(if (not (mk:pack-ok? (list 3 5 0 1 -2 4)))
+    (begin (display "PACK6_FAIL\n") (set! *fail* (+ *fail* 1))))
+(if (mk:pack-ok? (list 3 5))
+    (begin (display "PACK_SHORT_FAIL\n") (set! *fail* (+ *fail* 1))))
+(if (mk:pack-ok? (list 3 5 0 1 "x" 0))
+    (begin (display "PACK_NAN_FAIL\n") (set! *fail* (+ *fail* 1))))
+(expect "W_MISS" (mk:pack-winv (list 3 5 0)) 0)
+(define seeded (mk:strategy-seed!))
+(if (not (and (pair? seeded) (equal? (car seeded) #t)))
+    (begin (display "SEED_FAIL\n") (set! *fail* (+ *fail* 1))))
+(define ugly (mk:propose-file!
+              "/workspace/aura-market/soft/market/fixtures/ugly.lambda"))
+(if (not (tag? ugly "propose_heal"))
+    (begin (display "UGLY_FAIL\n") (set! *fail* (+ *fail* 1))))
+
+(if (= *fail* 0)
+    (display "M4_2_OK\n")
+    (display "M4_2_FAIL\n"))
+
+;; M4-3. Zero weights match the three-integer pack. The gate sees orders.
+(expect "PACK_WIDE" (mk:score-pack (list 3 5 0)) 18)
+(expect "PACK_WIDE6" (mk:score-pack (list 3 5 0 0 0 0)) 18)
+(expect "PACK_BETTER" (mk:score-pack (list 3 3 0)) 36)
+(expect "PACK_BETTER6" (mk:score-pack (list 3 3 0 0 0 0)) 36)
+(expect "WEIGHTED" (mk:score-pack (list 3 5 0 0 1 0)) 35)
+
+(if (= *fail* 0)
+    (display "M4_3_OK\n")
+    (display "M4_3_FAIL\n"))

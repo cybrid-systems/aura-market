@@ -8,10 +8,7 @@
 
 ;; Panel minimum, sequential inside a race thunk so fibers stay one layer.
 (define (mk:pack-min p)
-  (mk:list-min
-   (mk:panel-seq
-    (mk:qf-from (mk:pack-hs p) (mk:pack-sz p) (mk:pack-ib p))
-    9)))
+  (mk:list-min (mk:panel-seq-feat (mk:qf-pack p) 9)))
 
 (define (mk:propose-score! clean)
   (let ((pair (mk:race-thunks!

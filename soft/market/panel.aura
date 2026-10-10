@@ -19,3 +19,66 @@
 ;; One fiber per seed for a single law. No nested spawn.
 (define (mk:panel-fiber! qf mid)
   (mk:race-many! (mk:seed-thunks qf mid *panel-seeds*)))
+
+(define (mk:score-list qf mid seeds)
+  (if (null? seeds)
+      (list)
+      (cons (mk:score-seed qf mid (car seeds) *ticks*)
+            (mk:score-list qf mid (cdr seeds)))))
+
+(define (mk:list-min xs)
+  (let loop ((rest (cdr xs)) (m (car xs)))
+    (if (null? rest)
+        m
+        (loop (cdr rest) (if (< (car rest) m) (car rest) m)))))
+
+(define (mk:insert x xs)
+  (cond
+    ((null? xs) (list x))
+    ((<= x (car xs)) (cons x xs))
+    (#t (cons (car xs) (mk:insert x (cdr xs))))))
+
+(define (mk:sort xs)
+  (if (null? xs)
+      (list)
+      (mk:insert (car xs) (mk:sort (cdr xs)))))
+
+(define (mk:nth xs i)
+  (if (= i 0)
+      (car xs)
+      (mk:nth (cdr xs) (- i 1))))
+
+;; Even count: truncating-toward-zero mean of the two central values.
+(define (mk:median xs)
+  (let ((s (mk:sort xs)))
+    (let ((n (length s)))
+      (if (= (modulo n 2) 1)
+          (mk:nth s (quotient n 2))
+          (mk:qdiv (+ (mk:nth s (- (quotient n 2) 1))
+                      (mk:nth s (quotient n 2)))
+                   2)))))
+
+(define (mk:score-list-feat qf mid seeds)
+  (if (null? seeds)
+      (list)
+      (cons (mk:r-score (mk:sim-go qf mid "race" 0 (car seeds) *ticks* 1))
+            (mk:score-list-feat qf mid (cdr seeds)))))
+
+(define (mk:panel-seq qf mid)
+  (mk:score-list qf mid *panel-seeds*))
+
+(define (mk:panel-seq-feat qf mid)
+  (mk:score-list-feat qf mid *panel-seeds*))
+
+(define (mk:panel-report! qf mid tag)
+  (let ((xs (mk:panel-seq qf mid)))
+    (let ((mn (mk:list-min xs))
+          (md (mk:median xs)))
+      (display "PANEL tag=")
+      (display tag)
+      (display " min=")
+      (display (mk:nstr mn))
+      (display " median=")
+      (display (mk:nstr md))
+      (newline)
+      (list mn md))))

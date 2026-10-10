@@ -232,7 +232,10 @@
 
 ;; Replay the winner and write the main book.
 (define (mk:stamp! qf mid tag)
-  (let ((s (mk:sim qf mid tag 2)))
+  (mk:stamp-go! qf mid tag 0))
+
+(define (mk:stamp-go! qf mid tag feat)
+  (let ((s (mk:sim-go qf mid tag 2 *seed* *ticks* feat)))
     (set! *slot-tag* tag)
     (set! *book* (mk:r-book s))
     (set! *fair* (mk:r-fair s))
