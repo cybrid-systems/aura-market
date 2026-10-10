@@ -143,12 +143,20 @@
              (d0 0)
              (d1 0)
              (d2 0)
-             (d3 0))
+             (d3 0)
+             (adv 0)
+             (pf 0))
     (if (>= i ntick)
         (let* ((pnl (+ cash (* inv fair)))
                (pen (+ (quotient invsum 4) (* 2 (mk:abs inv)))))
-          (list (- pnl pen) pnl pen inv cash fair fills rejects book))
+          (list (- pnl pen) pnl pen inv cash fair fills rejects book adv))
         (let* ((drift (mk:t-drift r))
+               ;; Tick after a fill: drift still hurts the inventory that fill left.
+               (adv1 (if (and (= pf 1)
+                              (or (and (> inv 0) (< drift 0))
+                                  (and (< inv 0) (> drift 0))))
+                         (+ adv 1)
+                         adv))
                (imb (+ d0 (+ d1 (+ d2 d3))))
                (fair1 (+ fair drift))
                (q (if (= feat 1)
@@ -205,7 +213,9 @@
                   d1
                   d2
                   d3
-                  (- inv1 inv)))))))
+                  (- inv1 inv)
+                  adv1
+                  (if (> f 0) 1 0)))))))
 
 (define (mk:r-score s) (car s))
 (define (mk:r-pnl s) (car (cdr s)))
@@ -216,10 +226,20 @@
 (define (mk:r-fills s) (car (cdr (cdr (cdr (cdr (cdr (cdr s))))))))
 (define (mk:r-rejects s) (car (cdr (cdr (cdr (cdr (cdr (cdr (cdr s)))))))))
 (define (mk:r-book s) (car (cdr (cdr (cdr (cdr (cdr (cdr (cdr (cdr s))))))))))
+(define (mk:r-adv s) (car (cdr (cdr (cdr (cdr (cdr (cdr (cdr (cdr (cdr s)))))))))))
 
 ;; Score only. No set! of world slots, so a fiber race cannot clobber main.
-(define (mk:score qf mid)
+;; mk:score-m0 is pnl - pen_inv. mk:score stays on that formula.
+(define (mk:score-m0 qf mid)
   (mk:r-score (mk:sim qf mid "race" 0)))
+
+(define (mk:score qf mid)
+  (mk:score-m0 qf mid))
+
+;; pnl - pen_inv - pen_adv. Opt-in. M0 races do not call this.
+(define (mk:score-q qf mid)
+  (let ((s (mk:sim qf mid "race" 0)))
+    (- (mk:r-score s) (mk:r-adv s))))
 
 ;; Same score as mk:score when seed0 / ntick match *seed* / *ticks*.
 ;; Does not set! the main book.
