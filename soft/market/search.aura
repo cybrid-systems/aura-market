@@ -1,0 +1,7 @@
+;; Integer-pack fitness. Pure: no swap, no set! of the main book.
+(load "/workspace/aura-market/soft/market/book.aura")
+(load "/workspace/aura-market/soft/market/book_m12.aura")
+(load "/workspace/aura-market/soft/market/panel.aura")
+
+(define (mk:fitness p)
+  (mk:list-min (mk:panel-seq-feat (mk:qf-pack p) 9)))
