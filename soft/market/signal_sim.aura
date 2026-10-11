@@ -1,0 +1,177 @@
+;; Simulated hot signal on the seeded tape. Not a forecast.
+;; The body returns one integer. Prices move by that integer.
+;; A negative book drift is not passed into the swapped body:
+;; eval-current turns it into the empty list.
+(load "/workspace/aura-market/soft/market/book.aura")
+(load "/workspace/aura-market/soft/market/book_m12.aura")
+(load "/workspace/aura-market/soft/market/rules.aura")
+(load "/workspace/aura-market/soft/market/hot.aura")
+
+(define *fail* 0)
+
+(define (expect tag got want)
+  (display tag)
+  (display "=")
+  (cond
+    ((number? got) (display (mk:nstr got)))
+    ((null? got) (display "()"))
+    (#t (display got)))
+  (if (equal? got want)
+      (display " OK")
+      (begin
+        (display " WANT=")
+        (cond
+          ((number? want) (display (mk:nstr want)))
+          ((null? want) (display "()"))
+          (#t (display want)))
+        (set! *fail* (+ *fail* 1))))
+  (newline)
+  got)
+
+(define (nth xs i)
+  (if (= i 0)
+      (car xs)
+      (nth (cdr xs) (- i 1))))
+
+(define (entry-action e) (car e))
+(define (entry-tick e) (car (cdr e)))
+(define (entry-base e) (car (cdr (cdr e))))
+(define (entry-trial e) (car (cdr (cdr (cdr e)))))
+(define (entry-pack e) (car (cdr (cdr (cdr (cdr e))))))
+(define (entry-muts e) (car (cdr (cdr (cdr (cdr (cdr e)))))))
+(define (entry-extra e) (cdr (cdr (cdr (cdr (cdr (cdr e)))))))
+
+(define (has-sum? xs needle)
+  (if (pair? xs)
+      (if (string-contains? (car xs) needle)
+          #t
+          (has-sum? (cdr xs) needle))
+      #f))
+
+(define (show-pack p)
+  (if (and (pair? p) (= (length p) 3))
+      (string-append (mk:nstr (car p))
+                     (string-append ","
+                                    (string-append (mk:nstr (car (cdr p)))
+                                                   (string-append ","
+                                                                  (mk:nstr (car (cdr (cdr p))))))))
+      "none"))
+
+(define (show-4 q)
+  (string-append
+   (mk:nstr (car q))
+   (string-append
+    ","
+    (string-append
+     (mk:nstr (car (cdr q)))
+     (string-append
+      ","
+      (string-append
+       (mk:nstr (car (cdr (cdr q))))
+       (string-append "," (mk:nstr (car (cdr (cdr (cdr q))))))))))))
+
+;; Magnitude goes into the hot body. The sign is applied out here,
+;; where a negative integer is still a number.
+(define (mk:qf-signal p)
+  (lambda (fair inv drift imb)
+    (let* ((q ((mk:qf-pack p) fair inv drift imb))
+           (mag (if (< drift 0) (- 0 drift) drift))
+           (raw (mk:signal mag inv imb))
+           (adj (if (< drift 0) (- 0 raw) raw)))
+      (list (- (car q) adj)
+            (car (cdr q))
+            (- (car (cdr (cdr q))) adj)
+            (car (cdr (cdr (cdr q))))))))
+
+(define (engine-muts)
+  (let ((xs (try (query:mutations-since 0) (catch (e) (list)))))
+    (if (pair? xs) (length xs) 0)))
+
+(define *sig-seed*
+  (string-append
+   "(define (mk:law) (list 3 5 0))\n"
+   (string-append
+    "(define (mk:shadow) (list 3 5 0))\n"
+    "(define (mk:signal drift inv imb) 0)\n")))
+
+(define *fade* "(lambda (drift inv imb) drift)")
+(define *wide* (list 3 5 0))
+
+(display "SIM signal not-a-forecast")
+(newline)
+
+(let ((sc (try (set-code *sig-seed*) (catch (e) e))))
+  (if (not (equal? sc #t))
+      (begin
+        (display "SEED WANT=ok\n")
+        (set! *fail* (+ *fail* 1)))
+      (begin
+        (eval-current)
+        (hot-strategy:register! "mk:signal" "(lambda (drift inv imb) 0)"))))
+
+(define q-sig (mk:qf-signal *wide*))
+
+(expect "SIG_ZERO"
+        (mk:r-score (mk:sim-go q-sig 2 "sig" 0 *seed* *ticks* 1 "calm"))
+        18)
+(expect "SIG_ZERO_DRIFT"
+        (mk:r-score (mk:sim-go q-sig 2 "sig" 0 *seed* *ticks* 1 "drift"))
+        39)
+(expect "SIG_QUOTE" (show-4 (q-sig 100 0 0 0)) "97,5,103,5")
+
+(if (not (mk:body-ok? *fade*))
+    (begin
+      (display "GATE WANT=ok\n")
+      (set! *fail* (+ *fail* 1)))
+    (hot-strategy:swap! "mk:signal" *fade* "signal"))
+
+(let ((calm (mk:sim-go q-sig 2 "sig" 0 *seed* *ticks* 1 "calm"))
+      (drift (mk:sim-go q-sig 2 "sig" 0 *seed* *ticks* 1 "drift")))
+  (expect "SIG_CALM" (mk:r-score calm) 30)
+  (expect "SIG_DRIFT" (mk:r-score drift) -108)
+  (expect "SIG_INV" (mk:r-inv calm) 4)
+  (expect "SIG_SHIFT" (show-4 (q-sig 100 0 1 0)) "96,5,102,5")
+  (expect "SIG_CALL" (mk:signal 1 4 2) 1)
+  (expect "SIG_NEG" (mk:signal -1 4 2) (list))
+  (mk:ledger-clear!)
+  (if (and (> (mk:r-score calm) 18)
+           (> (mk:r-score drift) 39))
+      (begin
+        (mk:ledger-note-x! "keep" 18 (mk:r-score calm)
+                           (list "both-ok" 39 (mk:r-score drift) *fade*))
+        (expect "SIG_TAG" "signal_keep" "signal_drop"))
+      (begin
+        (mk:ledger-note-x! "drop" 18 (mk:r-score calm)
+                           (list "drift-fail" 39 (mk:r-score drift) *fade*))
+        (hot-strategy:heal!)
+        (expect "SIG_TAG" "signal_drop" "signal_drop"))))
+
+(expect "SIG_AFTER" (mk:signal 1 4 2) 0)
+(expect "LAW_HS" (mk:pack-hs (mk:law)) 3)
+(expect "LAW_SZ" (mk:pack-sz (mk:law)) 5)
+(expect "LIVE_REGIME" *live-regime* "calm")
+
+(let ((e (car (mk:ledger))))
+  (expect "LEDGER_N" (length (mk:ledger)) 1)
+  (expect "ENT_ACT_0" (entry-action e) "drop")
+  (expect "ENT_TICK_0" (entry-tick e) 0)
+  (expect "ENT_BASE_0" (entry-base e) 18)
+  (expect "ENT_TRIAL_0" (entry-trial e) 30)
+  (expect "ENT_PACK_0" (show-pack (entry-pack e)) "3,5,0")
+  (expect "ENT_REASON_0" (car (entry-extra e)) "drift-fail")
+  (expect "ENT_DRIFT_BASE" (car (cdr (entry-extra e))) 39)
+  (expect "ENT_DRIFT_TRIAL" (car (cdr (cdr (entry-extra e)))) -108)
+  (expect "ENT_BODY_0" (car (cdr (cdr (cdr (entry-extra e))))) *fade*)
+  (if (has-sum? (entry-muts e) "sum=signal")
+      (display "LEDGER_DROP_MUT=signal OK\n")
+      (begin
+        (display "LEDGER_DROP_MUT WANT=signal\n")
+        (set! *fail* (+ *fail* 1)))))
+
+(expect "ENGINE_MUTS" (engine-muts) 0)
+(expect "M0_WIDE" (mk:score quote-wide 2) 18)
+(expect "TICK" *tick* 0)
+
+(if (= *fail* 0)
+    (display "MARKET_SIGNAL_OK\n")
+    (display "MARKET_SIGNAL_FAIL\n"))

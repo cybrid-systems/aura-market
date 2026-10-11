@@ -1,0 +1,184 @@
+;; Simulated dataset versions on the seeded tape. Not a feed.
+;; v0 is calm mk:sim-go. v1 delays the taker one word and leaves drift
+;; on the current word. A version mismatch is a ledger drop, not a score.
+(load "/workspace/aura-market/soft/market/book.aura")
+(load "/workspace/aura-market/soft/market/book_m12.aura")
+(load "/workspace/aura-market/soft/market/rules.aura")
+
+(define *fail* 0)
+
+(define (expect tag got want)
+  (display tag)
+  (display "=")
+  (display (if (number? got) (mk:nstr got) got))
+  (if (equal? got want)
+      (display " OK")
+      (begin
+        (display " WANT=")
+        (display (if (number? want) (mk:nstr want) want))
+        (set! *fail* (+ *fail* 1))))
+  (newline)
+  got)
+
+(define (nth xs i)
+  (if (= i 0)
+      (car xs)
+      (nth (cdr xs) (- i 1))))
+
+(define (entry-action e) (car e))
+(define (entry-tick e) (car (cdr e)))
+(define (entry-base e) (car (cdr (cdr e))))
+(define (entry-trial e) (car (cdr (cdr (cdr e)))))
+(define (entry-extra e) (cdr (cdr (cdr (cdr (cdr (cdr e)))))))
+
+;; Tick 0 has no previous word: taker qty is 0, drift is current.
+;; Later ticks take side, qty, and aggression from the previous word.
+(define (mk:flow-delay cur prev)
+  (if (not prev)
+      (list 0 0 0 (mk:flow-drift cur))
+      (list (mk:flow-side prev)
+            (mk:flow-qty prev)
+            (mk:flow-aggr prev)
+            (mk:flow-drift cur))))
+
+(define (mk:sim-v1 qf)
+  (let loop ((i 0)
+             (r (mk:seed-step *seed*))
+             (fair *fair0*)
+             (inv 0)
+             (cash 0)
+             (invsum 0)
+             (fills 0)
+             (rejects 0)
+             (book (list))
+             (d0 0)
+             (d1 0)
+             (d2 0)
+             (d3 0)
+             (adv 0)
+             (pf 0)
+             (prev #f))
+    (if (>= i *ticks*)
+        (let* ((pnl (+ cash (* inv fair)))
+               (pen (+ (quotient invsum 4) (* 2 (mk:abs inv)))))
+          (list (- pnl pen) pnl pen inv cash fair fills rejects book adv))
+        (let* ((cur (mk:flow r "calm"))
+               (flow (mk:flow-delay cur prev))
+               (drift (mk:flow-drift flow))
+               (adv1 (if (and (= pf 1)
+                              (or (and (> inv 0) (< drift 0))
+                                  (and (< inv 0) (> drift 0))))
+                         (+ adv 1)
+                         adv))
+               (imb (+ d0 (+ d1 (+ d2 d3))))
+               (fair1 (+ fair drift))
+               (q (qf fair1 inv drift imb))
+               (bid (mk:order 0 (car q) (car (cdr q)) 2))
+               (ask (mk:order 1 (car (cdr (cdr q))) (car (cdr (cdr (cdr q)))) 2))
+               (gb (mk:gate bid ask inv fair1))
+               (ga (mk:gate ask bid inv fair1))
+               (nrej (+ (if (string=? gb "ok") 0 1)
+                        (if (string=? ga "ok") 0 1)))
+               (bk (append (if (string=? gb "ok") (list bid) (list))
+                           (if (string=? ga "ok") (list ask) (list))))
+               (side (mk:flow-side flow))
+               (tq (mk:flow-qty flow))
+               (aggr (mk:flow-aggr flow))
+               (hit (if (= side 0) (mk:side-of bk 1) (mk:side-of bk 0)))
+               (crosses (and hit
+                             (if (= side 0)
+                                 (<= (mk:o-px hit) (+ fair1 aggr))
+                                 (>= (mk:o-px hit) (- fair1 aggr)))))
+               (f (if crosses (mk:min tq (mk:o-qty hit)) 0))
+               (px (if crosses (mk:o-px hit) 0))
+               (inv1 (if (= side 0) (- inv f) (+ inv f)))
+               (cash1 (if (= side 0) (+ cash (* f px)) (- cash (* f px))))
+               (rest (if (and crosses (> (- (mk:o-qty hit) f) 0))
+                         (if (= side 0)
+                             (append (if (mk:side-of bk 0) (list (mk:side-of bk 0)) (list))
+                                     (list (mk:order 1 px (- (mk:o-qty hit) f) 2)))
+                             (append (list (mk:order 0 px (- (mk:o-qty hit) f) 2))
+                                     (if (mk:side-of bk 1) (list (mk:side-of bk 1)) (list))))
+                         (if crosses
+                             (if (= side 0)
+                                 (if (mk:side-of bk 0) (list (mk:side-of bk 0)) (list))
+                                 (if (mk:side-of bk 1) (list (mk:side-of bk 1)) (list)))
+                             bk))))
+          (loop (+ i 1)
+                (mk:seed-step r)
+                fair1
+                inv1
+                cash1
+                (+ invsum (mk:abs inv1))
+                (+ fills (if crosses 1 0))
+                (+ rejects nrej)
+                rest
+                d1
+                d2
+                d3
+                (- inv1 inv)
+                adv1
+                (if (> f 0) 1 0)
+                cur)))))
+
+(define (mk:sim-ver ver qf)
+  (cond
+    ((string=? ver "v0")
+     (mk:sim-go qf 2 "data" 0 *seed* *ticks* 1 "calm"))
+    ((string=? ver "v1")
+     (mk:sim-v1 qf))
+    (#t
+     (begin
+       (display "DATA_VER reject")
+       (newline)
+       #f))))
+
+;; Mismatch does not call mk:sim-ver. Trial stays the M0 wide score.
+(define (mk:data-judge! fit on)
+  (let ((base (mk:score quote-wide 2)))
+    (if (not (string=? fit on))
+        (begin
+          (mk:ledger-note-x! "drop" base base
+                             (list "data-mismatch" fit on))
+          "data-mismatch")
+        "ok")))
+
+(display "SIM data versioned-tape not-a-feed")
+(newline)
+
+(expect "M0_WIDE" (mk:score quote-wide 2) 18)
+
+(let ((wide (mk:qf-pack (list 3 5 0)))
+      (keep (mk:qf-pack (list 3 3 0 0 0 0))))
+  (expect "DATA_V0_WIDE" (mk:r-score (mk:sim-ver "v0" wide)) 18)
+  (expect "DATA_V0_330" (mk:r-score (mk:sim-ver "v0" keep)) 36)
+  (let ((v1 (mk:sim-ver "v1" wide)))
+    (expect "DATA_V1_WIDE" (mk:r-score v1) 17)
+    (expect "DATA_V1_PNL" (mk:r-pnl v1) 86)
+    (expect "DATA_V1_PEN" (mk:r-pen v1) 69)
+    (expect "DATA_V1_INV" (mk:r-inv v1) 8)
+    (expect "DATA_V1_FAIR" (mk:r-fair v1) 96)
+    (expect "DATA_V1_FILLS" (mk:r-fills v1) 10))
+  (expect "DATA_V1_330" (mk:r-score (mk:sim-ver "v1" keep)) 34))
+
+(expect "DATA_IDEA" "3,3,0" "3,3,0")
+(mk:ledger-clear!)
+(expect "DATA_MISMATCH" (mk:data-judge! "v0" "v1") "data-mismatch")
+
+(let ((e (car (mk:ledger))))
+  (expect "LEDGER_N" (length (mk:ledger)) 1)
+  (expect "ENT_ACT_0" (entry-action e) "drop")
+  (expect "ENT_TICK_0" (entry-tick e) 0)
+  (expect "ENT_BASE_0" (entry-base e) 18)
+  (expect "ENT_TRIAL_0" (entry-trial e) 18)
+  (expect "ENT_REASON_0" (car (entry-extra e)) "data-mismatch")
+  (expect "ENT_FIT_0" (car (cdr (entry-extra e))) "v0")
+  (expect "ENT_ON_0" (car (cdr (cdr (entry-extra e)))) "v1"))
+
+(expect "FEE" *fee-per-unit* 0)
+(expect "HALT" *halt* 0)
+(expect "TICK" *tick* 0)
+
+(if (= *fail* 0)
+    (display "MARKET_DATA_OK\n")
+    (display "MARKET_DATA_FAIL\n"))

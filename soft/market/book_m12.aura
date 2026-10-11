@@ -150,6 +150,16 @@
                             (mk:ledger-muts action)))))
   (length *ledger*))
 
+;; Same six fields, then a tail. Do not insert anything before muts.
+(define (mk:ledger-note-x! action base trial extra)
+  (set! *ledger*
+        (append *ledger*
+                (list (append (list action *tick* base trial
+                                    (mk:ledger-pack)
+                                    (mk:ledger-muts action))
+                              extra))))
+  (length *ledger*))
+
 ;; ref.aura overrides mk:journal! and must call mk:ledger-note! itself.
 ;; Unloaded, this records and prints nothing.
 (define (mk:journal! action base trial)

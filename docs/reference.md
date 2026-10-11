@@ -44,6 +44,25 @@ and is dropped. The slot returns to `(3 3 0)`. The ledger still lists
 `(1 3 2)`, `(9 5 0)`, and `(2 2 2)`. A drop is recorded before `heal!`,
 so the entry names the pack that was tried.
 
+## Simulated data and signal
+
+These runs are simulations on the seeded integer book. They are not a
+feed and not a forecast. `mk:score` of wide stays 18. `research_sim.aura`
+does not enable them.
+
+`bash scripts/smoke_data.sh` versions the LCG. v0 is calm `mk:flow`.
+v1 delays the taker by one word and leaves drift on the current word.
+Wide on v1 scores 17. An idea fit on v0 and scored on v1 without a
+declared switch is a ledger drop, not a silent v1 score.
+
+`bash scripts/smoke_signal.sh` hot-swaps `(mk:signal drift inv imb)`.
+Zero leaves the wide quote alone (score 18). After `hot-strategy:swap!`
+runs `eval-current`, a negative argument is the empty list, so the quote
+passes only a non-negative magnitude and applies the sign outside. Body
+`(lambda (drift inv imb) drift)` then scores 30 on calm and -108 on
+drift, so the simulation drops it and heals the body. The six-integer
+pack stays `(3 5 0)`.
+
 ## What a bad trial costs
 
 `*live-regime*` defaults to `calm`. `mk:reset!` puts it back. The live tick
@@ -89,3 +108,11 @@ pack finishes 5 behind frozen wide.
 研究闭环的模拟在同一条种子带上跑了四个固定想法。窄报价 -5 丢掉，
 价差 9 得 0 丢掉，`(3 3 0)` 得 36 留下。下一个想法对着 36 比较，
 得 -4，丢掉。账上还留着这三个被丢掉的包。
+
+数据和信号这两段都是模拟，不是行情、不是预测。v0 仍是原来的 calm
+吃单流。v1 只把吃单推迟一个字，漂移还在当前字上，宽报价得 17。没声明
+换档就把 v0 的想法拿到 v1 上打分，账上记失配丢掉，不把 v1 的分数当成
+它的分数。信号是单独的热函数，返回一个整数，从买卖价上减去；零信号就是
+今天的报价。热替换后的函数收到负数会得到空表，所以只把漂移的绝对值传进去，
+符号在热函数外面还原。`(lambda (drift inv imb) drift)` 在 calm 上得 30，
+在 drift 上得 -108，所以丢掉并 heal，六整数包仍是 `(3 5 0)`。
