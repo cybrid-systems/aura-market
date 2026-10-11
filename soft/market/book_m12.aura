@@ -135,7 +135,7 @@
         (list))))
 
 (define (mk:ledger-muts action)
-  (if (string=? action "heal")
+  (if (or (string=? action "heal") (string=? action "drop"))
       (let ((xs (try (query:mutations-since 0) (catch (e) (list)))))
         (if (pair? xs) xs (list)))
       (list)))

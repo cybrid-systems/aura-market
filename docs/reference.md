@@ -34,6 +34,16 @@ charge fees and does not halt. `mk:score` of wide on seed `20261005` stays
 
 `bash scripts/smoke_ref.sh` prints `MARKET_REF_OK`.
 
+## Simulated research loop
+
+`bash scripts/smoke_research.sh` replays four fixture ideas on the seeded
+panel. It does not read a market. Wide starts at 18. Tight scores -5 and
+is dropped. Spread 9 scores 0 and is dropped. `(3 3 0 0 0 0)` scores 36
+and becomes the shadow. The next idea is judged against 36, scores -4,
+and is dropped. The slot returns to `(3 3 0)`. The ledger still lists
+`(1 3 2)`, `(9 5 0)`, and `(2 2 2)`. A drop is recorded before `heal!`,
+so the entry names the pack that was tried.
+
 ## What a bad trial costs
 
 `*live-regime*` defaults to `calm`. `mk:reset!` puts it back. The live tick
@@ -75,3 +85,7 @@ pack finishes 5 behind frozen wide.
 `heal!` 会把 AST 里的变异日志一起退回。`mk:ledger` 在退回之前抄下
 `rebind` 和当时的参数包。代码回到 `(3 5 0)` 之后，账上仍记着试过
 `(9 5 0)`。
+
+研究闭环的模拟在同一条种子带上跑了四个固定想法。窄报价 -5 丢掉，
+价差 9 得 0 丢掉，`(3 3 0)` 得 36 留下。下一个想法对着 36 比较，
+得 -4，丢掉。账上还留着这三个被丢掉的包。

@@ -1,0 +1,130 @@
+;; Simulated research loop on the seeded tape. Not a market.
+;; Each idea is scored as a panel minimum against the current shadow.
+;; A loss is healed. The ledger still names the pack that lost.
+(load "/workspace/aura-market/soft/market/book.aura")
+(load "/workspace/aura-market/soft/market/book_m12.aura")
+(load "/workspace/aura-market/soft/market/rules.aura")
+(load "/workspace/aura-market/soft/market/propose.aura")
+
+(define *fail* 0)
+
+(define (expect tag got want)
+  (display tag)
+  (display "=")
+  (display (if (number? got) (mk:nstr got) got))
+  (if (equal? got want)
+      (display " OK")
+      (begin
+        (display " WANT=")
+        (display (if (number? want) (mk:nstr want) want))
+        (set! *fail* (+ *fail* 1))))
+  (newline)
+  got)
+
+(define (entry-action e) (car e))
+(define (entry-base e) (car (cdr (cdr e))))
+(define (entry-trial e) (car (cdr (cdr (cdr e)))))
+(define (entry-pack e) (car (cdr (cdr (cdr (cdr e))))))
+(define (entry-muts e) (car (cdr (cdr (cdr (cdr (cdr e)))))))
+
+(define (nth xs i)
+  (if (= i 0)
+      (car xs)
+      (nth (cdr xs) (- i 1))))
+
+(define (has-propose? xs)
+  (if (pair? xs)
+      (if (string-contains? (car xs) "sum=propose")
+          #t
+          (has-propose? (cdr xs)))
+      #f))
+
+(define (show-pack p)
+  (if (and (pair? p) (= (length p) 3))
+      (begin
+        (display (mk:nstr (car p)))
+        (display ",")
+        (display (mk:nstr (car (cdr p))))
+        (display ",")
+        (display (mk:nstr (car (cdr (cdr p))))))
+      (display "none")))
+
+(define (idea body)
+  (mk:sync-main!)
+  (mk:propose-body! body)
+  (display "SIM base=")
+  (display (mk:nstr *base-last*))
+  (display " trial=")
+  (display (mk:nstr *trial-last*))
+  (display " tag=")
+  (display *propose-tag*)
+  (display " law=")
+  (display (mk:law))
+  (newline))
+
+(define (check-entry i action base trial hs sz ib)
+  (let ((e (nth (mk:ledger) i)))
+    (expect (string-append "ENT_ACT_" (number->string i)) (entry-action e) action)
+    (expect (string-append "ENT_BASE_" (number->string i)) (entry-base e) base)
+    (expect (string-append "ENT_TRIAL_" (number->string i)) (entry-trial e) trial)
+    (display (string-append "ENT_PACK_" (number->string i) "="))
+    (show-pack (entry-pack e))
+    (if (and (pair? (entry-pack e))
+             (= (car (entry-pack e)) hs)
+             (= (car (cdr (entry-pack e))) sz)
+             (= (car (cdr (cdr (entry-pack e)))) ib))
+        (display " OK\n")
+        (begin
+          (display " WANT\n")
+          (set! *fail* (+ *fail* 1))))))
+
+(mk:strategy-seed!)
+(mk:ledger-clear!)
+
+;; Wide is the incumbent. Tight loses the panel. Code returns to wide.
+(idea "(lambda () (list 1 3 2))")
+(expect "R1_BASE" *base-last* 18)
+(expect "R1_TRIAL" *trial-last* -5)
+(expect "R1_TAG" *propose-tag* "propose_drop")
+(expect "R1_HS" (mk:pack-hs (mk:law)) 3)
+
+;; Spread 9 does not trade. Still wide afterwards.
+(idea "(lambda () (list 9 5 0))")
+(expect "R2_BASE" *base-last* 18)
+(expect "R2_TRIAL" *trial-last* 0)
+(expect "R2_TAG" *propose-tag* "propose_drop")
+(expect "R2_HS" (mk:pack-hs (mk:law)) 3)
+
+;; This pack wins the four-seed panel. It becomes the shadow.
+(idea "(lambda () (list 3 3 0 0 0 0))")
+(expect "R3_BASE" *base-last* 18)
+(expect "R3_TRIAL" *trial-last* 36)
+(expect "R3_TAG" *propose-tag* "propose_keep")
+(expect "R3_HS" (mk:pack-hs (mk:law)) 3)
+(expect "R3_SZ" (mk:pack-sz (mk:law)) 3)
+(expect "R3_SCORE" *main-score* 36)
+
+;; Later idea is judged against 36, not against the original 18.
+(idea "(lambda () (list 2 2 2 0 0 0))")
+(expect "R4_BASE" *base-last* 36)
+(expect "R4_TRIAL" *trial-last* -4)
+(expect "R4_TAG" *propose-tag* "propose_drop")
+(expect "R4_HS" (mk:pack-hs (mk:law)) 3)
+(expect "R4_SZ" (mk:pack-sz (mk:law)) 3)
+(expect "R4_SHADOW" (mk:pack-sz (mk:shadow)) 3)
+
+(expect "LEDGER_N" (length (mk:ledger)) 4)
+(check-entry 0 "drop" 18 -5 1 3 2)
+(check-entry 1 "drop" 18 0 9 5 0)
+(check-entry 2 "keep" 18 36 3 3 0)
+(check-entry 3 "drop" 36 -4 2 2 2)
+(if (has-propose? (entry-muts (nth (mk:ledger) 3)))
+    (display "LEDGER_DROP_MUT=propose OK\n")
+    (begin
+      (display "LEDGER_DROP_MUT WANT=propose\n")
+      (set! *fail* (+ *fail* 1))))
+(expect "M0_WIDE" (mk:score quote-wide 2) 18)
+
+(if (= *fail* 0)
+    (display "MARKET_RESEARCH_OK\n")
+    (display "MARKET_RESEARCH_FAIL\n"))
