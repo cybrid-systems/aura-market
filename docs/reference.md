@@ -44,11 +44,11 @@ and is dropped. The slot returns to `(3 3 0)`. The ledger still lists
 `(1 3 2)`, `(9 5 0)`, and `(2 2 2)`. A drop is recorded before `heal!`,
 so the entry names the pack that was tried.
 
-## Simulated data and signal
+## Simulated data, signal, execution, and risk
 
-These runs are simulations on the seeded integer book. They are not a
-feed and not a forecast. `mk:score` of wide stays 18. `research_sim.aura`
-does not enable them.
+These four runs are simulations on the seeded integer book. They are not
+a feed, not a forecast, not a venue fee, and not a live risk limit.
+`mk:score` of wide stays 18. `research_sim.aura` does not enable them.
 
 `bash scripts/smoke_data.sh` versions the LCG. v0 is calm `mk:flow`.
 v1 delays the taker by one word and leaves drift on the current word.
@@ -62,6 +62,17 @@ passes only a non-negative magnitude and applies the sign outside. Body
 `(lambda (drift inv imb) drift)` then scores 30 on calm and -108 on
 drift, so the simulation drops it and heals the body. The six-integer
 pack stays `(3 5 0)`.
+
+`bash scripts/smoke_exec.sh` subtracts filled quantity from `mk:score`
+only when the simulation asks. It does not charge `*fee-per-unit*` and
+it does not subtract `pen_adv`. Wide's execution score at one point per
+lot is -12 (volume 30, not the live fee 41). `(2 2 0)` wins the panel
+at 24 and loses once that cost is charged (-21).
+
+`bash scripts/smoke_risk.sh` refuses a panel win whose end inventory is
+above 6 or whose inventory penalty is above 60, then heals. `(3 3 0)`
+at panel min 36 still keeps (inventory 6, penalty 58). The live loss
+floor is a different switch and stays disarmed.
 
 ## What a bad trial costs
 
@@ -109,10 +120,15 @@ pack finishes 5 behind frozen wide.
 价差 9 得 0 丢掉，`(3 3 0)` 得 36 留下。下一个想法对着 36 比较，
 得 -4，丢掉。账上还留着这三个被丢掉的包。
 
-数据和信号这两段都是模拟，不是行情、不是预测。v0 仍是原来的 calm
-吃单流。v1 只把吃单推迟一个字，漂移还在当前字上，宽报价得 17。没声明
-换档就把 v0 的想法拿到 v1 上打分，账上记失配丢掉，不把 v1 的分数当成
-它的分数。信号是单独的热函数，返回一个整数，从买卖价上减去；零信号就是
-今天的报价。热替换后的函数收到负数会得到空表，所以只把漂移的绝对值传进去，
-符号在热函数外面还原。`(lambda (drift inv imb) drift)` 在 calm 上得 30，
-在 drift 上得 -108，所以丢掉并 heal，六整数包仍是 `(3 5 0)`。
+数据、信号、成交成本和风险这四段都是模拟，不是行情、不是预测、不是场内
+费用、不是实盘限额。v0 仍是原来的 calm 吃单流。v1 只把吃单推迟一个字，
+漂移还在当前字上，宽报价得 17。没声明换档就把 v0 的想法拿到 v1 上打分，
+账上记失配丢掉，不把 v1 的分数当成它的分数。信号是单独的热函数，返回一个
+整数，从买卖价上减去；零信号就是今天的报价。热替换后的函数收到负数会得到空表，
+所以只把漂移的绝对值传进去，符号在热函数外面还原。`(lambda (drift inv imb) drift)`
+在 calm 上得 30，在 drift 上得 -108，所以丢掉并 heal，六整数包仍是
+`(3 5 0)`。执行分只在模拟里用，从 `mk:score` 减去成交量，不进
+`*fee-per-unit*`，也不减 `pen_adv`。宽报价的执行分是 -12。`(2 2 0)`
+面板最低分 24，扣掉成本后是 -21，不再赢。风险闸只挡研究 KEEP：期末库存
+绝对值大于 6，或库存惩罚大于 60，就丢掉。`(3 3 0)` 的库存是 6、惩罚是
+58，仍然 KEEP。活簿的熔断不动。

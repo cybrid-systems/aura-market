@@ -56,6 +56,8 @@ bash scripts/smoke_ledger.sh  # trial memory after AST heal → MARKET_LEDGER_OK
 bash scripts/smoke_research.sh # seeded research loop → MARKET_RESEARCH_OK
 bash scripts/smoke_data.sh     # simulated dataset v0/v1 → MARKET_DATA_OK
 bash scripts/smoke_signal.sh   # simulated hot signal → MARKET_SIGNAL_OK
+bash scripts/smoke_exec.sh     # simulated execution score → MARKET_EXEC_OK
+bash scripts/smoke_risk.sh     # simulated research risk gate → MARKET_RISK_OK
 bash scripts/smoke.sh         # the stack, plus live MiniMax or LIVE_SKIP + burn
 bash scripts/burn.sh          # 3 rounds, horizon 24; fixtures if MARKET_PROPOSE=0
 ```
@@ -115,6 +117,8 @@ Detail in `docs/m1.md` and `docs/m2.md`.
 | `soft/market/research_sim.aura` | four fixture ideas on the seeded tape |
 | `soft/market/data_sim.aura` | simulated v0/v1 tape, not a feed, `MARKET_DATA_OK` |
 | `soft/market/signal_sim.aura` | simulated hot signal, not a forecast, `MARKET_SIGNAL_OK` |
+| `soft/market/exec_sim.aura` | simulated per-lot execution score, `MARKET_EXEC_OK` |
+| `soft/market/risk_sim.aura` | simulated research risk gate, `MARKET_RISK_OK` |
 | `scripts/run_soft.sh` | docker tip binary |
 | `scripts/smoke_soft.sh` | M0 evidence |
 | `scripts/smoke_m1.sh` | M1 evidence |
@@ -171,6 +175,8 @@ bash scripts/smoke_ledger.sh   # MARKET_LEDGER_OK
 bash scripts/smoke_research.sh # MARKET_RESEARCH_OK
 bash scripts/smoke_data.sh     # 模拟数据集 v0/v1 → MARKET_DATA_OK
 bash scripts/smoke_signal.sh   # 模拟信号 → MARKET_SIGNAL_OK
+bash scripts/smoke_exec.sh     # 模拟执行成本 → MARKET_EXEC_OK
+bash scripts/smoke_risk.sh     # 模拟研究风控 → MARKET_RISK_OK
 bash scripts/smoke.sh          # MARKET_SMOKE_OK
 bash scripts/burn.sh           # MARKET_BURN_OK（MARKET_PROPOSE=0 用 fixture）
 ```

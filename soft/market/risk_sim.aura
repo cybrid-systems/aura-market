@@ -1,0 +1,125 @@
+;; Simulated research risk gate. Not a live limit.
+;; A panel win is kept only when end inventory is at most 6 and
+;; pen_inv is at most 60. Breach is strict greater-than.
+;; mk:propose-score! does not call this. The live halt stays off.
+(load "/workspace/aura-market/soft/market/book.aura")
+(load "/workspace/aura-market/soft/market/book_m12.aura")
+(load "/workspace/aura-market/soft/market/propose.aura")
+
+(define *fail* 0)
+(define *risk-inv-max* 6)
+(define *risk-loss-max* 60)
+(define *risk-base* 18)
+
+(define (expect tag got want)
+  (display tag)
+  (display "=")
+  (display (if (number? got) (mk:nstr got) got))
+  (if (equal? got want)
+      (display " OK")
+      (begin
+        (display " WANT=")
+        (display (if (number? want) (mk:nstr want) want))
+        (set! *fail* (+ *fail* 1))))
+  (newline)
+  got)
+
+(define (nth xs i)
+  (if (= i 0)
+      (car xs)
+      (nth (cdr xs) (- i 1))))
+
+(define (entry-action e) (car e))
+(define (entry-base e) (car (cdr (cdr e))))
+(define (entry-trial e) (car (cdr (cdr (cdr e)))))
+(define (entry-extra e) (cdr (cdr (cdr (cdr (cdr (cdr e)))))))
+
+(define (show-pack p)
+  (if (and (pair? p) (mk:pack-ok? p))
+      (string-append (mk:nstr (mk:pack-hs p))
+                     (string-append ","
+                                    (string-append (mk:nstr (mk:pack-sz p))
+                                                   (string-append ","
+                                                                  (mk:nstr (mk:pack-ib p))))))
+      "none"))
+
+(define (mk:calm-sim p)
+  (mk:sim-go (mk:qf-pack p) 9 "risk" 0 *seed* *ticks* 1 "calm"))
+
+;; Inventory first, then pen_inv. A panel loss does not consult the caps.
+(define (mk:risk-reason raw s)
+  (cond
+    ((not (> raw *risk-base*)) "score")
+    ((> (mk:abs (mk:r-inv s)) *risk-inv-max*) "risk-inv")
+    ((> (mk:r-pen s) *risk-loss-max*) "risk-loss")
+    (#t "risk-ok")))
+
+(define (mk:risk-idea! body)
+  (mk:sync-main!)
+  (mk:apply-body! body "risk")
+  (let* ((p (mk:law))
+         (raw (mk:pack-min p))
+         (s (mk:calm-sim p))
+         (why (mk:risk-reason raw s)))
+    (mk:ledger-note-x! (if (string=? why "risk-ok") "keep" "drop")
+                       *risk-base* raw
+                       (list why (mk:r-inv s) (mk:r-pen s)))
+    (if (string=? why "risk-ok")
+        (set! *main-body* body)
+        (hot-strategy:heal!))
+    (list why raw (mk:r-inv s) (mk:r-pen s) (show-pack p))))
+
+(display "SIM risk not-a-limit")
+(newline)
+
+(mk:strategy-seed!)
+(mk:ledger-clear!)
+(expect "M0_WIDE" (mk:score quote-wide 2) 18)
+(expect "RISK_INV_MAX" *risk-inv-max* 6)
+(expect "RISK_LOSS_MAX" *risk-loss-max* 60)
+(set! *risk-base* (mk:pack-min (list 3 5 0)))
+
+(let ((r1 (mk:risk-idea! "(lambda () (list 2 2 0))")))
+  (expect "R1_RAW" (car (cdr r1)) 24)
+  (expect "R1_INV" (car (cdr (cdr r1))) 9)
+  (expect "R1_PEN" (car (cdr (cdr (cdr r1)))) 67)
+  (expect "R1_TAG" (car r1) "risk-inv")
+  (expect "R1_PACK" (car (cdr (cdr (cdr (cdr r1))))) "2,2,0"))
+
+(let ((r2 (mk:risk-idea! "(lambda () (list 3 6 0))")))
+  (expect "R2_RAW" (car (cdr r2)) 28)
+  (expect "R2_INV" (car (cdr (cdr r2))) 5)
+  (expect "R2_PEN" (car (cdr (cdr (cdr r2)))) 61)
+  (expect "R2_TAG" (car r2) "risk-loss")
+  (expect "R2_PACK" (car (cdr (cdr (cdr (cdr r2))))) "3,6,0"))
+
+(let ((r3 (mk:risk-idea! "(lambda () (list 3 3 0 0 0 0))")))
+  (expect "R3_BASE" *risk-base* 18)
+  (expect "R3_RAW" (car (cdr r3)) 36)
+  (expect "R3_INV" (car (cdr (cdr r3))) 6)
+  (expect "R3_PEN" (car (cdr (cdr (cdr r3)))) 58)
+  (expect "R3_TAG" (if (string=? (car r3) "risk-ok") "keep" (car r3)) "keep")
+  (expect "R3_PACK" (car (cdr (cdr (cdr (cdr r3))))) "3,3,0"))
+
+(expect "LEDGER_N" (length (mk:ledger)) 3)
+(let ((e0 (nth (mk:ledger) 0))
+      (e1 (nth (mk:ledger) 1))
+      (e2 (nth (mk:ledger) 2)))
+  (expect "ENT_ACT_0" (entry-action e0) "drop")
+  (expect "ENT_REASON_0" (car (entry-extra e0)) "risk-inv")
+  (expect "ENT_ACT_1" (entry-action e1) "drop")
+  (expect "ENT_REASON_1" (car (entry-extra e1)) "risk-loss")
+  (expect "ENT_ACT_2" (entry-action e2) "keep")
+  (expect "ENT_BASE_2" (entry-base e2) 18)
+  (expect "ENT_TRIAL_2" (entry-trial e2) 36)
+  (expect "ENT_REASON_2" (car (entry-extra e2)) "risk-ok"))
+
+(expect "LAW_HS" (mk:pack-hs (mk:law)) 3)
+(expect "LAW_SZ" (mk:pack-sz (mk:law)) 3)
+(expect "FEE" *fee-per-unit* 0)
+(expect "HALT" *halt* 0)
+(expect "TICK" *tick* 0)
+
+(if (= *fail* 0)
+    (display "MARKET_RISK_OK\n")
+    (display "MARKET_RISK_FAIL\n"))

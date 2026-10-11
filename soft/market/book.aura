@@ -168,11 +168,12 @@
              (d2 0)
              (d3 0)
              (adv 0)
-             (pf 0))
+             (pf 0)
+             (vol 0))
     (if (>= i ntick)
         (let* ((pnl (+ cash (* inv fair)))
                (pen (+ (quotient invsum 4) (* 2 (mk:abs inv)))))
-          (list (- pnl pen) pnl pen inv cash fair fills rejects book adv))
+          (list (- pnl pen) pnl pen inv cash fair fills rejects book adv vol))
         (let* ((flow (mk:flow r regime))
                (drift (mk:flow-drift flow))
                ;; Tick after a fill: drift still hurts the inventory that fill left.
@@ -239,7 +240,8 @@
                   d3
                   (- inv1 inv)
                   adv1
-                  (if (> f 0) 1 0)))))))
+                  (if (> f 0) 1 0)
+                  (+ vol f)))))))
 
 (define (mk:r-score s) (car s))
 (define (mk:r-pnl s) (car (cdr s)))
@@ -251,6 +253,8 @@
 (define (mk:r-rejects s) (car (cdr (cdr (cdr (cdr (cdr (cdr (cdr s)))))))))
 (define (mk:r-book s) (car (cdr (cdr (cdr (cdr (cdr (cdr (cdr (cdr s))))))))))
 (define (mk:r-adv s) (car (cdr (cdr (cdr (cdr (cdr (cdr (cdr (cdr (cdr s)))))))))))
+;; Filled quantity. mk:score does not read this.
+(define (mk:r-vol s) (car (cdr (cdr (cdr (cdr (cdr (cdr (cdr (cdr (cdr (cdr s))))))))))))
 
 ;; Score only. No set! of world slots, so a fiber race cannot clobber main.
 ;; mk:score-m0 is pnl - pen_inv. mk:score stays on that formula.

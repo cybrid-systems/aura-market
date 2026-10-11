@@ -1,0 +1,99 @@
+;; Simulated per-lot execution score. Not a venue fee.
+;; mk:score stays pnl - pen_inv. This file subtracts filled quantity
+;; only when *exec-per-unit* is set. The live fee is a different number.
+(load "/workspace/aura-market/soft/market/book.aura")
+(load "/workspace/aura-market/soft/market/book_m12.aura")
+(load "/workspace/aura-market/soft/market/propose.aura")
+
+(define *fail* 0)
+(define *exec-per-unit* 0)
+
+(define (expect tag got want)
+  (display tag)
+  (display "=")
+  (display (if (number? got) (mk:nstr got) got))
+  (if (equal? got want)
+      (display " OK")
+      (begin
+        (display " WANT=")
+        (display (if (number? want) (mk:nstr want) want))
+        (set! *fail* (+ *fail* 1))))
+  (newline)
+  got)
+
+(define (entry-action e) (car e))
+(define (entry-tick e) (car (cdr e)))
+(define (entry-base e) (car (cdr (cdr e))))
+(define (entry-trial e) (car (cdr (cdr (cdr e)))))
+(define (entry-pack e) (car (cdr (cdr (cdr (cdr e))))))
+(define (entry-extra e) (cdr (cdr (cdr (cdr (cdr (cdr e)))))))
+
+(define (show-pack p)
+  (if (and (pair? p) (= (length p) 3))
+      (string-append (mk:nstr (car p))
+                     (string-append ","
+                                    (string-append (mk:nstr (car (cdr p)))
+                                                   (string-append ","
+                                                                  (mk:nstr (car (cdr (cdr p))))))))
+      "none"))
+
+(define (mk:exec-of s)
+  (- (mk:r-score s) (* *exec-per-unit* (mk:r-vol s))))
+
+(define (mk:one p)
+  (mk:sim-go (mk:qf-pack p) 9 "exec" 0 *seed* *ticks* 1 "calm"))
+
+(display "SIM exec not-a-venue-fee")
+(newline)
+
+(mk:strategy-seed!)
+(mk:ledger-clear!)
+(expect "M0_WIDE" (mk:score quote-wide 2) 18)
+(set! *exec-per-unit* 1)
+(expect "EXEC_RATE" *exec-per-unit* 1)
+
+(let ((wide (mk:one (list 3 5 0)))
+      (keep (mk:one (list 3 3 0 0 0 0))))
+  (expect "EXEC_WIDE" (mk:exec-of wide) -12)
+  (expect "EXEC_VOL" (mk:r-vol wide) 30)
+  (expect "EXEC_330" (mk:exec-of keep) 6)
+  (expect "EXEC_330_VOL" (mk:r-vol keep) 30))
+
+(mk:apply-body! "(lambda () (list 2 2 0))" "exec")
+(let* ((p (mk:law))
+       (raw (mk:pack-min p))
+       (s (mk:one p))
+       (ex (mk:exec-of s))
+       (base-ex -12))
+  (expect "EXEC_RAW" raw 24)
+  (expect "EXEC_220" ex -21)
+  (expect "EXEC_220_VOL" (mk:r-vol s) 45)
+  (if (and (> raw 18) (not (> ex base-ex)))
+      (begin
+        (mk:ledger-note-x! "drop" 18 raw (list "exec" base-ex ex))
+        (hot-strategy:heal!)
+        (expect "EXEC_TAG" "exec_drop" "exec_drop"))
+      (begin
+        (expect "EXEC_TAG" "exec_keep" "exec_drop"))))
+
+(let ((e (car (mk:ledger))))
+  (expect "LEDGER_N" (length (mk:ledger)) 1)
+  (expect "ENT_ACT_0" (entry-action e) "drop")
+  (expect "ENT_TICK_0" (entry-tick e) 0)
+  (expect "ENT_BASE_0" (entry-base e) 18)
+  (expect "ENT_TRIAL_0" (entry-trial e) 24)
+  (expect "ENT_PACK_0" (show-pack (entry-pack e)) "2,2,0")
+  (expect "ENT_REASON_0" (car (entry-extra e)) "exec")
+  (expect "ENT_EXEC_BASE" (car (cdr (entry-extra e))) -12)
+  (expect "ENT_EXEC_TRIAL" (car (cdr (cdr (entry-extra e)))) -21))
+
+(expect "LAW_HS" (mk:pack-hs (mk:law)) 3)
+(expect "LAW_SZ" (mk:pack-sz (mk:law)) 5)
+(expect "FEE" *fee-per-unit* 0)
+(expect "HALT" *halt* 0)
+(expect "TICK" *tick* 0)
+(expect "SCORE_Q_UNTOUCHED" (mk:score-q quote-wide 2) 15)
+
+(if (= *fail* 0)
+    (display "MARKET_EXEC_OK\n")
+    (display "MARKET_EXEC_FAIL\n"))

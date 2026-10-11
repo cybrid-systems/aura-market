@@ -2,6 +2,7 @@
 # Stack: M0 through M7, then the M5 grid, the M8 window, the live-book
 # reference, the regime-shift value tape, the heal ledger, the seeded
 # research simulation, the simulated dataset, the simulated signal,
+# the simulated execution score, the simulated research risk gate,
 # optional live MiniMax (SKIP when
 # no key), fixture burn.
 set -euo pipefail
@@ -17,6 +18,8 @@ bash "$ROOT/scripts/smoke_ledger.sh"
 bash "$ROOT/scripts/smoke_research.sh"
 bash "$ROOT/scripts/smoke_data.sh"
 bash "$ROOT/scripts/smoke_signal.sh"
+bash "$ROOT/scripts/smoke_exec.sh"
+bash "$ROOT/scripts/smoke_risk.sh"
 
 keyfile="/home/box/.config/aura-build/minimax_api_key"
 if [[ ! -s "$keyfile" ]]; then
